@@ -207,6 +207,9 @@ def chat():
     if 'user' not in session:
         return redirect(url_for('login'))
     
+    # 템플릿에 전달할 아바타 URL 생성 (Railway 경로 문제 해결)
+    avatar_url = url_for('static', filename='images/ai_avatar.png')
+    
     # 채팅창 왼쪽에 표시할 내용 로드
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
@@ -214,28 +217,26 @@ def chat():
     
     user_name = session['user']['name']
     
-    # --- 첫 접속 시 AI의 초기 인사말 처리 로직 변경 ---
-    conversation = session.get('conversation', []) # 세션이 비어있을 경우를 대비
-    if not conversation: # 대화 목록이 비어있다면 = 초기 접속
+    # --- 첫 접속 시 AI의 초기 인사말 처리 로직 ---
+    conversation = session.get('conversation', [])
+    if not conversation: 
         initial_greeting = f"안녕, {user_name}야! 나는 오늘 너와 함께 과제를 해결할 동료 학습자 AI야. 교내 쓰레기 처리 문제를 해결할 수 있는 학습 활동 설계를 지금부터 함께 시작해 보자! 어떻게 시작하면 좋을까?"
-        # 초기 인사말을 세션에 추가
         conversation.append({"role": "assistant", "content": initial_greeting})
         session['conversation'] = conversation
         
         log_path = os.path.join(LOGS_DIR, session.get('log_filename', 'temp.txt'))
-        # 초기 인사말은 '일반' 스캐폴딩 유형으로 로그에 기록
         log_conversation_entry(log_path, 'AI', initial_greeting, scaffolding_type="일반")
     # -----------------------------------------------
     
-    # 이전 대화 내용을 템플릿에 전달하여 로드
-    chat_history = conversation # 이제 시스템 프롬프트가 없으므로 전체를 전달
+    chat_history = conversation
     
     return render_template('chat.html', 
                            user_name=user_name, 
                            situation=situation, 
                            rules=rules, 
                            task=task,
-                           chat_history=chat_history)
+                           chat_history=chat_history,
+                           AVATAR_URL=avatar_url) # <-- 이 부분이 추가됨
 
 
 @app.route('/get_response', methods=['POST'])

@@ -213,7 +213,6 @@
 </head>
 <body>
     <div class="main-wrapper">
-        <!-- 좌측: 학습 목표 및 배경 (Problem Context) -->
         <div class="left-panel">
             <h2>학습 목표 및 배경</h2>
             <h3>1. 현재 상황</h3>
@@ -226,13 +225,11 @@
             <p>{{ task | safe }}</p>
         </div>
         
-        <!-- 중앙: 채팅 영역 (Chat Area) -->
         <div class="center-panel">
             <div class="chat-header">
                 AI 동료 학습자 - {{ user_name }}님
             </div>
             <div class="chat-box" id="chat-box">
-                <!-- 이전 대화 이력이 여기에 로드됩니다 -->
                 {% for message in chat_history %}
                     {% if message.role == 'user' %}
                         <div class="message-row user-message-row">
@@ -240,8 +237,7 @@
                         </div>
                     {% elif message.role == 'assistant' %}
                         <div class="message-row ai-message-row">
-                            <!-- 아바타 이미지 로드 -->
-                            <img src="{{ url_for('static', filename='images/ai_avatar.png') }}" alt="AI 아바타" class="avatar" onerror="this.onerror=null; this.src='https://placehold.co/80x80/1a73e8/ffffff?text=AI'">
+                            <img src="{{ AVATAR_URL }}" alt="AI 아바타" class="avatar" onerror="this.onerror=null;this.src='{{ url_for('static', filename='images/ai_placeholder.png') }}'">
                             <div class="message-content">{{ message.content | replace('\n', '<br>') | safe }}</div>
                         </div>
                     {% endif %}
@@ -250,7 +246,6 @@
             <div class="input-form">
                 <input type="text" id="user-input" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode === 13) sendMessage()">
                 <button onclick="sendMessage()" title="메시지 전송">
-                    <!-- SVG Send Icon -->
                     <svg class="send-icon" viewBox="0 0 24 24">
                         <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
                     </svg>
@@ -258,7 +253,6 @@
             </div>
         </div>
 
-        <!-- 우측: 결과물 제출 창 (Submission Panel) -->
         <div class="right-panel">
             <h2>결과물 제출 및 종료</h2>
             <p><strong>연구 참여 시간: 약 60분</strong></p>
@@ -266,7 +260,6 @@
             
             <textarea id="submission-text" rows="10" placeholder="여기에 학습 활동 설계 결과물을 작성하세요." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; margin-bottom: 20px; box-sizing: border-box;"></textarea>
             
-            <!-- 기능 미구현 버튼 -->
             <button onclick="alert('제출 기능은 아직 구현되지 않았습니다. 잠시 후 사용해 주세요.')">
                 최종 결과물 제출 (미구현)
             </button>
@@ -278,15 +271,17 @@
     </div>
 
     <script>
+        // Flask에서 전달받은 AVATAR_URL 변수를 JavaScript 변수로 저장
+        const AVATAR_URL = "{{ AVATAR_URL }}";
+        // 대체 이미지 URL (Flask url_for를 사용하여 정적 파일 경로 생성)
+        const PLACEHOLDER_AVATAR_URL = "{{ url_for('static', filename='images/ai_placeholder.png') }}";
+        
         const chatBox = document.getElementById('chat-box');
         const userInput = document.getElementById('user-input');
-        
-        // **아바타 경로 FIX:** Jinja를 사용하여 Flask의 정적 파일 경로를 정확히 가져옵니다.
-        const AI_AVATAR_PATH = "{{ url_for('static', filename='images/ai_avatar.png') }}"; 
-        const PLACEHOLDER_AVATAR = "https://placehold.co/80x80/1a73e8/ffffff?text=AI";
 
         function getAvatarPath() {
-            return AI_AVATAR_PATH;
+            // 이제 AVATAR_URL 변수를 직접 사용합니다.
+            return AVATAR_URL;
         }
 
         function appendMessage(speaker, message) {
@@ -295,11 +290,12 @@
 
             if (speaker === 'AI') {
                 const avatar = document.createElement('img');
-                avatar.src = getAvatarPath();
+                // 수정: AVATAR_URL JavaScript 변수 사용
+                avatar.src = AVATAR_URL; 
                 avatar.alt = "AI 아바타";
                 avatar.classList.add('avatar');
                 // 이미지 로드 오류 시 대체 플레이스 홀더 사용
-                avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR; };
+                avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR_URL; };
                 row.appendChild(avatar);
             }
 
@@ -318,10 +314,12 @@
             loadingRow.classList.add('message-row', 'ai-message-row');
 
             const avatar = document.createElement('img');
-            avatar.src = getAvatarPath();
+            // 수정: AVATAR_URL JavaScript 변수 사용
+            avatar.src = AVATAR_URL; 
             avatar.alt = "AI 아바타";
             avatar.classList.add('avatar');
-            avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR; };
+            // 이미지 로드 오류 시 대체 플레이스 홀더 사용
+            avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR_URL; };
             loadingRow.appendChild(avatar);
             
             const content = document.createElement('div');
