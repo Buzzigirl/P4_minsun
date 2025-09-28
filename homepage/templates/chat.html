@@ -1,0 +1,396 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동료 AI 스캐폴딩 - 채팅</title>
+    <style>
+        /* 1. 전체 레이아웃 (3단 구성 및 중앙 정렬) */
+        body {
+            font-family: 'Inter', 'Arial', sans-serif;
+            background-color: #eef1f5;
+            display: flex;
+            justify-content: center; /* 수평 중앙 */
+            align-items: center;    /* 수직 중앙 */
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .main-wrapper {
+            display: flex;
+            width: 95%;
+            max-width: 1500px; /* 최대 폭 확장 */
+            height: 90vh;
+            min-height: 600px;
+            overflow: hidden;
+        }
+        
+        /* 왼쪽 패널: 학습 목표 및 배경 */
+        .left-panel {
+            width: 320px; 
+            padding: 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-right: 20px; /* 채팅창과 띄우기 */
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* 오른쪽 패널: 결과물 제출 창 */
+        .right-panel {
+            width: 280px; 
+            padding: 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            margin-left: 20px; /* 채팅창과 띄우기 */
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+
+        /* 중앙 패널: 채팅 영역 */
+        .center-panel {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* 2. 패널 내부 스타일 */
+        .left-panel h2, .right-panel h2 {
+            color: #1a73e8; 
+            border-bottom: 3px solid #1a73e8;
+            padding-bottom: 10px;
+            margin-bottom: 25px;
+            font-weight: 800;
+            font-size: 1.3em;
+        }
+        .left-panel h3 {
+            color: #3c4043;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+        .left-panel p, .right-panel p {
+            color: #5f6368;
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 0.95em;
+        }
+        .right-panel button {
+            width: 100%;
+            padding: 12px;
+            background-color: #34a853; /* 구글 그린 */
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .right-panel button:hover {
+            background-color: #278f48;
+        }
+        
+        /* 3. 채팅 영역 */
+        .chat-header {
+            padding: 15px 30px;
+            background-color: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            color: #202124;
+            font-size: 1.1em;
+            font-weight: 500;
+            border-top-left-radius: 12px;
+            border-top-right-radius: 12px;
+        }
+        .chat-box {
+            flex-grow: 1;
+            padding: 30px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            background-color: #ffffff;
+        }
+        
+        /* 4. 메시지 스타일 */
+        .message-row {
+            display: flex;
+            align-items: flex-start;
+        }
+        .user-message-row {
+            justify-content: flex-end;
+        }
+        .ai-message-row {
+            justify-content: flex-start;
+        }
+
+        .avatar {
+            width: 80px; 
+            height: 80px; 
+            border-radius: 50%;
+            margin-right: 15px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border: 3px solid #4285f4; 
+        }
+        .user-message-row .avatar {
+            display: none;
+        }
+        
+        .message-content {
+            max-width: 65%;
+            padding: 15px 20px;
+            border-radius: 24px;
+            line-height: 1.5;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+            word-break: break-word;
+            font-size: 1.05em;
+        }
+        .ai-message-row .message-content {
+            background-color: #f0f4f9; 
+            color: #202124;
+            border-top-left-radius: 4px;
+            margin-right: 15%;
+        }
+        .user-message-row .message-content {
+            background-color: #1a73e8; 
+            color: white;
+            border-top-right-radius: 4px;
+            margin-left: 15%;
+        }
+
+        /* 5. 입력 폼 및 버튼 */
+        .input-form {
+            padding: 20px 30px;
+            border-top: 1px solid #e0e0e0;
+            background-color: #ffffff;
+            display: flex;
+            gap: 15px;
+            border-bottom-left-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+        .input-form input {
+            flex-grow: 1;
+            padding: 15px 20px;
+            border: 1px solid #dadce0;
+            border-radius: 28px;
+            font-size: 16px;
+        }
+        .input-form button {
+            background-color: #1a73e8;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 55px;
+            height: 55px;
+            font-size: 1.2em;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .send-icon {
+            stroke: white;
+            fill: none;
+            width: 24px;
+            height: 24px;
+        }
+
+        /* 로딩 애니메이션 (생략) */
+        .loading-dot { height: 10px; width: 10px; background-color: #ccc; border-radius: 50%; display: inline-block; margin: 0 2px; animation: dot-loading 1.5s infinite ease-in-out; }
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+        @keyframes dot-loading {
+            0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
+            40% { transform: scale(1); background-color: #1a73e8; opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="main-wrapper">
+        <!-- 좌측: 학습 목표 및 배경 (Problem Context) -->
+        <div class="left-panel">
+            <h2>학습 목표 및 배경</h2>
+            <h3>1. 현재 상황</h3>
+            <p>{{ situation | safe }}</p>
+            
+            <h3>2. 교내 규칙</h3>
+            <p>{{ rules | safe }}</p>
+
+            <h3>3. 해결 과제</h3>
+            <p>{{ task | safe }}</p>
+        </div>
+        
+        <!-- 중앙: 채팅 영역 (Chat Area) -->
+        <div class="center-panel">
+            <div class="chat-header">
+                AI 동료 학습자 - {{ user_name }}님
+            </div>
+            <div class="chat-box" id="chat-box">
+                <!-- 이전 대화 이력이 여기에 로드됩니다 -->
+                {% for message in chat_history %}
+                    {% if message.role == 'user' %}
+                        <div class="message-row user-message-row">
+                            <div class="message-content">{{ message.content | replace('\n', '<br>') | safe }}</div>
+                        </div>
+                    {% elif message.role == 'assistant' %}
+                        <div class="message-row ai-message-row">
+                            <!-- 아바타 이미지 로드 -->
+                            <img src="{{ url_for('static', filename='images/ai_avatar.png') }}" alt="AI 아바타" class="avatar" onerror="this.onerror=null; this.src='https://placehold.co/80x80/1a73e8/ffffff?text=AI'">
+                            <div class="message-content">{{ message.content | replace('\n', '<br>') | safe }}</div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <div class="input-form">
+                <input type="text" id="user-input" placeholder="메시지를 입력하세요..." onkeypress="if(event.keyCode === 13) sendMessage()">
+                <button onclick="sendMessage()" title="메시지 전송">
+                    <!-- SVG Send Icon -->
+                    <svg class="send-icon" viewBox="0 0 24 24">
+                        <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- 우측: 결과물 제출 창 (Submission Panel) -->
+        <div class="right-panel">
+            <h2>결과물 제출 및 종료</h2>
+            <p><strong>연구 참여 시간: 약 60분</strong></p>
+            <p>문제 해결 과정을 충분히 진행한 후, 최종 결과물을 작성하여 제출해 주세요.</p>
+            
+            <textarea id="submission-text" rows="10" placeholder="여기에 학습 활동 설계 결과물을 작성하세요." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; margin-bottom: 20px; box-sizing: border-box;"></textarea>
+            
+            <!-- 기능 미구현 버튼 -->
+            <button onclick="alert('제출 기능은 아직 구현되지 않았습니다. 잠시 후 사용해 주세요.')">
+                최종 결과물 제출 (미구현)
+            </button>
+            
+            <p style="margin-top: 30px; font-size: 0.9em; color: #e74c3c;">
+                **주의:** 제출 후에는 대화 내용이 최종적으로 저장되고 연구 참여가 종료됩니다.
+            </p>
+        </div>
+    </div>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        
+        // **아바타 경로 FIX:** Jinja를 사용하여 Flask의 정적 파일 경로를 정확히 가져옵니다.
+        const AI_AVATAR_PATH = "{{ url_for('static', filename='images/ai_avatar.png') }}"; 
+        const PLACEHOLDER_AVATAR = "https://placehold.co/80x80/1a73e8/ffffff?text=AI";
+
+        function getAvatarPath() {
+            return AI_AVATAR_PATH;
+        }
+
+        function appendMessage(speaker, message) {
+            const row = document.createElement('div');
+            row.classList.add('message-row', speaker === 'AI' ? 'ai-message-row' : 'user-message-row');
+
+            if (speaker === 'AI') {
+                const avatar = document.createElement('img');
+                avatar.src = getAvatarPath();
+                avatar.alt = "AI 아바타";
+                avatar.classList.add('avatar');
+                // 이미지 로드 오류 시 대체 플레이스 홀더 사용
+                avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR; };
+                row.appendChild(avatar);
+            }
+
+            const content = document.createElement('div');
+            content.classList.add('message-content');
+            content.innerHTML = message.replace(/\n/g, '<br>'); 
+            row.appendChild(content);
+
+            chatBox.appendChild(row);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        function showLoading() {
+            const loadingRow = document.createElement('div');
+            loadingRow.id = 'loading-row';
+            loadingRow.classList.add('message-row', 'ai-message-row');
+
+            const avatar = document.createElement('img');
+            avatar.src = getAvatarPath();
+            avatar.alt = "AI 아바타";
+            avatar.classList.add('avatar');
+            avatar.onerror = function() { this.onerror=null; this.src=PLACEHOLDER_AVATAR; };
+            loadingRow.appendChild(avatar);
+            
+            const content = document.createElement('div');
+            content.classList.add('message-content');
+            content.innerHTML = 'AI가 생각 중입니다... <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>';
+            loadingRow.appendChild(content);
+
+            chatBox.appendChild(loadingRow);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            
+            userInput.disabled = true;
+        }
+
+        function hideLoading() {
+            const loadingRow = document.getElementById('loading-row');
+            if (loadingRow) {
+                loadingRow.remove();
+            }
+            userInput.disabled = false;
+            userInput.focus(); 
+        }
+
+        function sendMessage() {
+            const message = userInput.value.trim();
+            if (message === '') return;
+
+            appendMessage('User', message);
+            userInput.value = '';
+
+            showLoading();
+            
+            fetch('/get_response', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ message: message })
+            })
+            .then(response => {
+                hideLoading();
+                if (!response.ok) {
+                    return response.json().then(data => { 
+                        // API 오류가 콘솔에 찍히도록 logError 대신 직접 console.error 사용
+                        console.error('API Error:', data.error || 'Unknown error during API call.');
+                        throw new Error(data.error || 'AI 응답을 가져오는 데 실패했습니다.'); 
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    // 서버에서 발생한 오류 (API 통신 오류 등)
+                    appendMessage('System', `오류: ${data.error}`);
+                } else {
+                    // 정상적인 AI 응답
+                    appendMessage('AI', data.response);
+                }
+            })
+            .catch(error => {
+                hideLoading();
+                console.error('Fetch error:', error);
+                appendMessage('System', `통신 오류: ${error.message}`);
+            });
+        }
+
+        window.onload = function() {
+            chatBox.scrollTop = chatBox.scrollHeight;
+            userInput.focus();
+        };
+    </script>
+</body>
+</html>
