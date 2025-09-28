@@ -4,25 +4,26 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 from openai import OpenAI
 from datetime import datetime
-from waitress import serve
+from waitress import serve # Railway Procfile에서 사용하므로 유지
 
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = 'super-secret-key'
 client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# BASE_DIR은 이제 프로젝트 최상위 폴더(P4_minsun)를 가리킵니다.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
 
-LOGS_DIR = os.path.join(BASE_DIR, '..', 'logs')
-#COUNTS_DIR = os.path.join(BASE_DIR, '..', 'scaffolding_counts') # 기존 코드
+# 모든 경로에서 '..'를 제거하고 BASE_DIR을 기준으로 직접 참조합니다.
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 COUNTS_DIR = os.path.join(LOGS_DIR, 'scaffolding_counts') # 이렇게 변경
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(COUNTS_DIR, exist_ok=True)
 # ------------------------------------
 
-# (load_prompt_file, 프롬프트 로드, 사용자 로드 로직은 이전과 동일)
 def load_prompt_file(filename):
-    file_path = os.path.join(BASE_DIR, '..', 'data', 'prompts', filename)
+    # 파일 경로 수정: BASE_DIR(루트)에서 data/prompts 폴더를 직접 참조
+    file_path = os.path.join(BASE_DIR, 'data', 'prompts', filename)
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
@@ -49,7 +50,8 @@ INTEGRATED_SYSTEM_PROMPT = f"""
 ---
 """
 try:
-    users_path = os.path.join(BASE_DIR, '..', 'data', 'users.json')
+    # users.json 경로 수정: BASE_DIR(루트)에서 data/users.json을 직접 참조
+    users_path = os.path.join(BASE_DIR, 'data', 'users.json')
     with open(users_path, 'r', encoding='utf-8') as f:
         AUTHORIZED_USERS = json.load(f)
 except FileNotFoundError:
