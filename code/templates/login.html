@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 동료학습자 스캐폴딩 효과 분석 | 로그인</title>
+    <style>
+        /* Google Fonts에서 'Noto Sans KR' 폰트 불러오기 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+
+        /* 기본 스타일 초기화 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* 전체 페이지 스타일 */
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            display: flex;
+            justify-content: center; /* 가로 중앙 정렬 */
+            align-items: center;    /* 세로 중앙 정렬 */
+            min-height: 100vh;      /* 화면 전체 높이 사용 */
+            background-color: #f0f2f5; /* 부드러운 배경색 */
+        }
+
+        /* 로그인 컨테이너 스타일 */
+        .login-container {
+            width: 400px;
+            padding: 40px;
+            background-color: white;
+            border-radius: 12px; /* 모서리를 둥글게 */
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* 그림자 효과 */
+            text-align: center;
+        }
+
+        /* 제목 스타일 */
+        .login-container h1 {
+            font-size: 20px;
+            font-weight: 500;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .login-container h2 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        /* 입력 필드를 감싸는 div 스타일 */
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        /* 입력 필드(학번, 이름) 라벨 스타일 */
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        /* 입력 필드 스타일 */
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #007bff; /* 클릭 시 테두리 색상 변경 */
+        }
+
+        /* 로그인 버튼 스타일 */
+        .login-button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background-color: #007bff;
+            color: white;
+            font-size: 18px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.3s ease; /* 부드러운 색상 전환 효과 */
+        }
+
+        .login-button:hover {
+            background-color: #0056b3; /* 마우스 올렸을 때 색상 변경 */
+        }
+
+        /* 에러 메시지 스타일 */
+        .error-message {
+            color: #d93025;
+            margin-top: 20px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <h1>AI 동료학습자 스캐폴딩 효과 분석</h1>
+        <h2>실험 참여 로그인</h2>
+        <form method="post">
+            <div class="input-group">
+                <label for="student_id">학번</label>
+                <input type="text" id="student_id" name="student_id" required pattern="\d{10}" placeholder="예시: 2024311771">
+            </div>
+            <div class="input-group">
+                <label for="name">이름</label>
+                <input type="text" id="name" name="name" required placeholder="이름을 입력하세요">
+            </div>
+            <button type="submit" class="login-button">로그인</button>
+        </form>
+        {% if error %}
+            <p class="error-message">{{ error }}</p>
+        {% endif %}
+    </div>
+</body>
+</html>
