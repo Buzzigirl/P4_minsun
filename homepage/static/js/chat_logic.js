@@ -14,15 +14,18 @@ const MODAL = document.getElementById('end-session-modal');
 const MODAL_MESSAGE = document.getElementById('modal-message');
 const MODAL_BUTTONS = document.getElementById('modal-buttons');
 
+const TIMER_STORAGE_KEY = 'chatStartTime_' + window.USER_ID;
+
 let startTime;
 
 // 1. 타이머 초기화 및 시작
 function initializeTimer() {
-    if (!localStorage.getItem('chatStartTime')) {
+    // 🚩 localStorage의 키를 TIMER_STORAGE_KEY로 변경
+    if (!localStorage.getItem(TIMER_STORAGE_KEY)) { 
         startTime = Date.now();
-        localStorage.setItem('chatStartTime', startTime);
+        localStorage.setItem(TIMER_STORAGE_KEY, startTime);
     } else {
-        startTime = parseInt(localStorage.getItem('chatStartTime'));
+        startTime = parseInt(localStorage.getItem(TIMER_STORAGE_KEY));
     }
     
     setInterval(updateTimer, 1000);

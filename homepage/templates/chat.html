@@ -8,6 +8,8 @@
     <script>
         window.AVATAR_URL = "{{ AVATAR_URL }}";
         window.PLACEHOLDER_AVATAR_URL = "{{ url_for('static', filename='images/peer_placeholder.webp') }}";
+        // 🚩 수정: USER_ID (학번) 변수 추가
+        window.USER_ID = "{{ session['user']['student_id'] }}"; 
     </script>
 </head>
 <body>
@@ -57,13 +59,18 @@
             </button>
             
             <p style="margin-top: 30px; font-size: 0.9em; color: #e74c3c;">
-                **주의:** 결과물 제출 이후 학습 종료하기 버튼을 클릭 시 대화 내용이 최종적으로 저장되고 연구 참여가 종료됩니다.
+                주의: 결과물 제출 및 종료하기 버튼을 클릭 시 대화 내용이 최종적으로 저장되고 연구 참여가 종료됩니다.
             </p>
 
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSejTDmVCKloMc2R6w_Q2G-wst8aiJ4JKcyRHurAgiv_R_RVdg/viewform" target="_blank" style="text-decoration: none;">
                 <button type="button" style="width: 100%; padding: 10px; margin-top: 10px; background-color: #BCB5E8; color: #3b5998; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: bold;">
                     사후 설문조사 참여하기
                 </button>
+
+                <p style="margin-top: 30px; font-size: 0.9em; color: #e74c3c;">
+                주의: 결과물 제출 이후 설문조사에 참여해주세요.
+                </p>
+
             </a>
             </div>
         </div>
