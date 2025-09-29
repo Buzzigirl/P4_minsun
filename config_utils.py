@@ -73,12 +73,18 @@ except Exception as e:
 
 def get_integrated_system_prompt():
     """시스템 프롬프트, 상황, 규칙, 과제를 통합하여 반환합니다."""
+    # 각 내용을 파일에서 로드
     system_base = load_prompt_file('system_prompt.md')
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
     learner_model_data = load_prompt_file('learner_model.md') 
     
+    # 🚩 RAG 데이터를 MD 파일로 로드 (2번, 3번 질문 유형 자료)
+    edutech_tools = load_prompt_file('ai_edutech_tools.md')
+    edutech_sites = load_prompt_file('edutech_websites.md')
+    
+    # 통합된 시스템 프롬프트 구성
     return f"""
 {system_base}
 ---
@@ -96,8 +102,19 @@ def get_integrated_system_prompt():
 
 ---
 # 🧠 동료 AI의 핵심 자료 (Knowledge Base for Rule Compliance)
+
+## 학습 모델 자료
 학습자 중심 학습 모델에 대한 질문을 받을 경우, 반드시 아래 자료에 기반하여 답변해야 한다.
 {learner_model_data}
+
+## 에듀테크 도구 및 사이트 자료
+학습자가 에듀테크 도구(질문 유형 2)나 참고 사이트(질문 유형 3)에 대해 물어볼 경우, 반드시 아래 자료를 **참조하여 답변**해야 한다.
+
+### 2. 에듀테크 도구 목록
+{edutech_tools}
+
+### 3. 참고 웹사이트 목록
+{edutech_sites}
 ---
 """
 

@@ -11,7 +11,7 @@ import shutil
 from config_utils import (
     client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
     load_prompt_file, log_conversation_entry, update_scaffolding_count,
-    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA, format_scaffolding_counts # 🚨 format_scaffolding_counts 추가
+    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA, format_scaffolding_counts 
 )
 # ----------------------------------------
 
@@ -148,11 +148,11 @@ def chat():
                             AVATAR_URL=avatar_url)
 
 # ----------------------------------------------------
-# 🚩 /get_response 라우트 (Tool-Calling 및 로그 통합 로직)
+# 🚩 /get_response 라우트 (RAG 안정화 및 로그 통합 로직)
 # ----------------------------------------------------
 @app.route('/get_response', methods=['POST'])
 def get_response():
-    """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 포함)"""
+    """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 제거, 안정성 확보)"""
     if 'user' not in session:
         return jsonify({'error': '세션 오류. 다시 로그인해주세요.'}), 401
     if not client:
@@ -167,137 +167,58 @@ def get_response():
     # 1. 사용자 메시지를 대화 이력에 추가 
     conversation.append({"role": "user", "content": user_message})
 
-    # 2. Tool-Calling 반복 루프 설정
-    MAX_RETRIES = 5
-    for i in range(MAX_RETRIES):
+    # 2. API 호출을 위한 메시지 리스트 구성
+    messages_for_api = [
+        {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT}
+    ] + conversation
+    
+    try:
+        # 🚨 수정: Tool-Calling 구조 제거 및 단일 API 호출로 변경
+        response = client.chat.completions.create(
+            model=MODEL_NAME, 
+            messages=messages_for_api, 
+            # tools=TOOLS_SCHEMA, <-- 제거됨
+            response_format={"type": "json_object"}
+        )
         
-        # 2.1 API 호출을 위한 메시지 리스트 구성
-        messages_for_api = [
-            {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT}
-        ] + conversation
+        ai_response_json_str = response.choices[0].message.content
         
+        # 3. AI 응답 파싱 및 추출
         try:
-            # 2.2 Tool-Schema와 함께 API 호출
-            response = client.chat.completions.create(
-                model=MODEL_NAME, 
-                messages=messages_for_api, 
-                tools=TOOLS_SCHEMA, 
-                response_format={"type": "json_object"}
-            )
-        except Exception as e:
-            # API 호출 실패 시 사용자 메시지 제거 후 오류 반환
-            if conversation and conversation[-1].get('role') == 'user':
-                conversation.pop()
-                session['conversation'] = conversation 
-            print(f"🚨 ERROR: OpenAI API 호출 오류: {e}")
-            log_conversation_entry('System_Error', f"API 호출 오류 발생: {e}", log_filename)
-            return jsonify({'error': 'AI 응답을 가져오는 데 실패했습니다. 다시 시도해 주세요.'}), 500
-
-
-        # 2.3 Tool 사용 요청 확인 및 실행
-        response_message = response.choices[0].message
+            ai_response_data = json.loads(ai_response_json_str)
+            
+            scaffolding_type = ai_response_data.get("scaffolding_type", "분류실패")
+            valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
+            if not scaffolding_type in valid_types:
+                scaffolding_type = "분류실패"
+                
+            response_text = ai_response_data.get("response_text", "AI 응답 생성에 실패했습니다.")
+            
+        except json.JSONDecodeError:
+            scaffolding_type = "JSON 파싱 실패"
+            response_text = "AI 응답 형식에 오류가 발생했어. 잠시 후 다시 시도해 봐."
+            
+        # 4. AI 응답을 대화 이력에 추가하고 세션에 저장
+        conversation.append({"role": "assistant", "content": response_text})
+        session['conversation'] = conversation
         
-        if response_message.tool_calls:
-            # AI가 Tool 사용을 요청했습니다.
-            tool_calls = response_message.tool_calls
-            
-            # AI의 요청을 메시지 이력에 추가 (Tool 호출 전 기록)
-            conversation.append(response_message)
-            
-            for tool_call in tool_calls:
-                function_name = tool_call.function.name
-                function_to_call = AI_TOOLS.get(function_name)
-                
-                if function_to_call:
-                    try:
-                        # 🚩 JSON 파싱 오류 방지 및 안전한 로드
-                        if tool_call.function.arguments:
-                            function_args = json.loads(tool_call.function.arguments)
-                        else:
-                            function_args = {}
-                        
-                        # Tool 실행
-                        tool_output = function_to_call(**function_args)
-                        
-                        # Tool 실행 결과를 메시지 이력에 추가
-                        conversation.append(
-                            {
-                                "tool_call_id": tool_call.id,
-                                "role": "tool",
-                                "name": function_name,
-                                "content": tool_output,
-                            }
-                        )
-                    except json.JSONDecodeError:
-                        # 🚨 JSON 파싱 오류 발생 시 AI에게 에러 메시지를 Tool output으로 전달
-                        conversation.append(
-                            {
-                                "role": "tool",
-                                "name": function_name,
-                                "content": json.dumps({"error": "Tool 인자 파싱 실패. 인자 형식을 확인하세요."}, ensure_ascii=False),
-                            }
-                        )
-                    except Exception as tool_e:
-                        # Tool 함수 실행 중 예상치 못한 오류 발생
-                        conversation.append(
-                            {
-                                "role": "tool",
-                                "name": function_name,
-                                "content": json.dumps({"error": f"Tool 실행 중 오류 발생: {str(tool_e)}"}, ensure_ascii=False),
-                            }
-                        )
+        # 5. 로그 기록 및 카운트 업데이트
+        log_conversation_entry('User', user_message, log_filename)
+        log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
+        update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
+        
+        # 6. 최종 응답 반환
+        return jsonify({'response': response_text})
 
-                else:
-                    conversation.append(
-                        {
-                            "role": "tool",
-                            "name": function_name,
-                            "content": json.dumps({"error": f"Tool '{function_name}' not found."}, ensure_ascii=False),
-                        }
-                    )
+    except Exception as e:
+        # 오류 발생 시 사용자 메시지를 대화 이력에서 제거
+        if conversation and conversation[-1].get('role') == 'user':
+            conversation.pop()
+            session['conversation'] = conversation 
             
-            # Tool 결과를 AI에게 다시 보내서 최종 답변을 받기 위해 루프를 반복
-            continue 
-
-        else:
-            # AI가 최종 답변을 생성했습니다.
-            ai_response_json_str = response_message.content
-            
-            # 3. AI 응답 파싱 및 추출 (로그 및 카운트 기록)
-            try:
-                ai_response_data = json.loads(ai_response_json_str)
-                
-                scaffolding_type = ai_response_data.get("scaffolding_type", "분류실패")
-                valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
-                if not scaffolding_type in valid_types:
-                    scaffolding_type = "분류실패"
-                    
-                response_text = ai_response_data.get("response_text", "AI 응답 생성에 실패했습니다.")
-                
-            except json.JSONDecodeError:
-                scaffolding_type = "JSON 파싱 실패"
-                response_text = "AI 응답 형식에 오류가 발생했어. 잠시 후 다시 시도해 봐."
-                
-            # 4. AI 응답을 대화 이력에 추가
-            conversation.append({"role": "assistant", "content": response_text})
-            
-            # 5. 업데이트된 대화 이력을 세션에 저장 (기억하도록 함)
-            session['conversation'] = conversation
-            
-            # 6. 성공적으로 완료된 후에만 로그 기록
-            log_conversation_entry('User', user_message, log_filename)
-            log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
-            
-            # 7. 스캐폴딩 횟수 카운트 업데이트
-            update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
-            
-            # 8. 최종 응답 반환 및 루프 종료
-            return jsonify({'response': response_text})
-
-    # MAX_RETRIES를 초과하여 최종 응답을 받지 못한 경우
-    print(f"🚨 ERROR: Tool-Calling 최대 시도 횟수({MAX_RETRIES}) 초과.")
-    log_conversation_entry('System_Error', f"Tool-Calling 최대 시도 횟수 초과", log_filename)
-    return jsonify({'error': 'AI가 Tool 호출에 실패했습니다. 다시 시도해 주세요.'}), 500
+        print(f"🚨 ERROR: OpenAI API 호출 오류: {e}")
+        log_conversation_entry('System_Error', f"API 호출 오류 발생: {e}", log_filename)
+        return jsonify({'error': 'AI 응답을 가져오는 데 실패했습니다. 다시 시도해 주세요.'}), 500
 
 
 @app.route('/get_prompt_response', methods=['POST'])
@@ -313,14 +234,12 @@ def get_prompt_response():
 
     prompt_message = "5분 동안 사용자로부터 응답이 없습니다. 프롬프트 규칙 1번(침묵 감지 및 재촉)에 따라, '지금 어디까지 생각해봤거나 어디까지 진행되었어? 하면서 어떤 부분이 어렵니?'와 같은 내용으로 사용자의 대화를 재촉하는 메시지를 생성하세요."
 
-    # API 호출을 위한 메시지 리스트 구성
     messages_for_api = [
         {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT},
         {"role": "user", "content": prompt_message} 
     ] + conversation 
 
     try:
-        # Tool 호출은 침묵 감지에서 필요 없으므로 'tools' 인자 제거
         chat_completion = client.chat.completions.create(
             model=MODEL_NAME, 
             messages=messages_for_api, 
@@ -328,7 +247,6 @@ def get_prompt_response():
         )
         ai_response_json_str = chat_completion.choices[0].message.content
         
-        # JSON 파싱 및 응답 추출
         ai_response_data = json.loads(ai_response_json_str)
         response_text = ai_response_data.get("response_text", "다시 시도해 주세요.")
         scaffolding_type = ai_response_data.get("scaffolding_type", "동기적 스캐폴딩") 
@@ -346,22 +264,9 @@ def get_prompt_response():
         log_conversation_entry('System_Error', f"침묵 감지 오류 발생: {e}", log_filename)
         return jsonify({'error': 'AI 재촉 메시지를 가져오는 데 실패했습니다.'}), 500
 
-if __name__ == "__main__":
-    print("======================================================")
-    print("✅ 서버 준비 완료.")
-    print("------------------------------------------------------")
-    print("🚀 서버 시작 (Ctrl+C로 종료)")
-    
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=False)
-
-
-# app.py 파일 하단에 새로운 라우트 추가
-
-# app.py 파일 내 submit_and_download_log 라우트 함수 수정
-
-# app.py 파일 내 submit_and_download_log 라우트 (수정)
-
+# ----------------------------------------------------
+# 🚩 /submit_and_download_log 라우트 (로그 다운로드 기능)
+# ----------------------------------------------------
 @app.route('/submit_and_download_log')
 def submit_and_download_log():
     """최종 로그 파일과 카운트 횟수를 통합하여 다운로드 제공합니다. (세션 유지)"""
@@ -372,27 +277,25 @@ def submit_and_download_log():
     user_log_dir = session['user_log_dir']
     
     # 세션에서 파일명 로드
-    log_filename_relative = session.get('log_filename') # 예: 테스트/시간_학번.txt
+    log_filename_relative = session.get('log_filename') 
     count_filename = session.get('count_filename')
     
-    # 🚨 핵심: 최종 경로 재확인
+    # 🚨 핵심: 파일 경로 구성 및 존재 확인 (FileNotFoundError 방지)
     main_log_path = os.path.join(LOGS_DIR, log_filename_relative)
-    count_file_path = os.path.join(user_log_dir, count_filename) # user_log_dir은 이미 LOGS_DIR/이름
     
     print(f"DEBUG: 로그 다운로드 시도 (LOG): {main_log_path}")
-    print(f"DEBUG: 카운트 파일 경로 (COUNT): {count_file_path}")
-
+    
     # 1. 메인 대화 로그 읽기
     try:
         from config_utils import format_scaffolding_counts # 함수 임포트
         
+        if not os.path.exists(main_log_path):
+            print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}")
+            return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 경로를 확인하세요: {main_log_path}", 404
+        
         with open(main_log_path, 'r', encoding='utf-8') as f:
             conversation_log = f.read()
             
-    except FileNotFoundError:
-        # 🚨 오류 메시지 구체화
-        print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}")
-        return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 경로를 확인하세요: {main_log_path}", 404
     except Exception as e:
         print(f"🚨 ERROR: 메인 로그 파일 읽기 오류: {e}")
         return "로그 파일을 읽는 중 서버 오류가 발생했습니다.", 500
@@ -417,9 +320,19 @@ def submit_and_download_log():
             download_name=final_download_filename
         )
         
-        # 세션 유지는 유지
+        # 5. 응답 반환
         return response
 
     except Exception as e:
         print(f"🚨 ERROR: 최종 로그 파일 생성/다운로드 중 오류 발생: {e}")
         return "최종 로그 파일 다운로드 중 서버 오류가 발생했습니다.", 500
+
+
+if __name__ == "__main__":
+    print("======================================================")
+    print("✅ 서버 준비 완료.")
+    print("------------------------------------------------------")
+    print("🚀 서버 시작 (Ctrl+C로 종료)")
+    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
