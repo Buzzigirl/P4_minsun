@@ -46,7 +46,7 @@ def login():
             # 사용자별 로그 폴더를 생성하고 세션에 저장
             user_log_dir = os.path.join(LOGS_DIR, name)
             os.makedirs(user_log_dir, exist_ok=True)
-            session['user_log_dir'] = user_log_dir 
+            session['user_log_dir'] = user_log_dir
 
             now = datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
             

@@ -154,6 +154,7 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
             f.write(log_entry)
             
     except Exception as e:
+        # 🚩 오류 메시지 출력: Railway 로그에서 이 메시지를 찾아야 합니다.
         print(f"🚨🚨 CRITICAL LOG ERROR: 로그 파일 저장 실패: {log_file_path} ({e})")
 
 
