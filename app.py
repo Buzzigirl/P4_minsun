@@ -10,7 +10,7 @@ import time
 from config_utils import (
     client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
     load_prompt_file, log_conversation_entry, update_scaffolding_count,
-    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA # 🚩 AI_TOOLS, TOOLS_SCHEMA 임포트 추가
+    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA 
 )
 # ----------------------------------------
 
@@ -19,7 +19,6 @@ app = Flask(__name__,
             template_folder='homepage/templates', 
             static_folder='homepage/static')
 
-# FLASK_SECRET_KEY를 환경 변수에서 로드
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default-super-secret-key-for-session')
 
 
@@ -116,7 +115,6 @@ def chat():
     if 'user' not in session:
         return redirect(url_for('login'))
     
-    # 아바타 경로는 peer_avatar.webp로 가정
     avatar_url = url_for('static', filename='images/peer_avatar.webp')
     
     situation = load_prompt_file('situation.md')
@@ -145,7 +143,6 @@ def chat():
                             task=task,
                             chat_history=chat_history,
                             AVATAR_URL=avatar_url)
-
 
 @app.route('/get_response', methods=['POST'])
 def get_response():
@@ -178,11 +175,10 @@ def get_response():
             response = client.chat.completions.create(
                 model=MODEL_NAME, 
                 messages=messages_for_api, 
-                tools=TOOLS_SCHEMA, # 🚨 Tool Schema 전달
+                tools=TOOLS_SCHEMA, 
                 response_format={"type": "json_object"}
             )
         except Exception as e:
-            # API 호출 자체에서 오류 발생 시 사용자 메시지 제거 후 오류 반환
             if conversation and conversation[-1].get('role') == 'user':
                 conversation.pop()
                 session['conversation'] = conversation 
@@ -206,31 +202,50 @@ def get_response():
                 function_to_call = AI_TOOLS.get(function_name)
                 
                 if function_to_call:
-                    # 인자가 없는 경우를 대비하여 .function.arguments가 있는지 확인 후 로드
                     try:
-                        function_args = json.loads(tool_call.function.arguments)
+                        # 🚩 수정: Tool 인자 파싱 오류 방지 및 안전한 로드
+                        if tool_call.function.arguments:
+                            function_args = json.loads(tool_call.function.arguments)
+                        else:
+                            function_args = {}
+                        
+                        # Tool 실행
+                        tool_output = function_to_call(**function_args)
+                        
+                        # Tool 실행 결과를 메시지 이력에 추가
+                        conversation.append(
+                            {
+                                "tool_call_id": tool_call.id,
+                                "role": "tool",
+                                "name": function_name,
+                                "content": tool_output,
+                            }
+                        )
                     except json.JSONDecodeError:
-                        function_args = {}
-                    
-                    # Tool 실행
-                    tool_output = function_to_call(**function_args)
-                    
-                    # Tool 실행 결과를 메시지 이력에 추가
-                    conversation.append(
-                        {
-                            "tool_call_id": tool_call.id,
-                            "role": "tool",
-                            "name": function_name,
-                            "content": tool_output,
-                        }
-                    )
+                        # 🚨 JSON 파싱 오류 발생 시 AI에게 에러 메시지를 Tool output으로 전달
+                        conversation.append(
+                            {
+                                "role": "tool",
+                                "name": function_name,
+                                "content": json.dumps({"error": "Tool 인자 파싱 실패. 인자 형식을 확인하세요."}, ensure_ascii=False),
+                            }
+                        )
+                    except Exception as tool_e:
+                         # Tool 함수 실행 중 예상치 못한 오류 발생
+                        conversation.append(
+                            {
+                                "role": "tool",
+                                "name": function_name,
+                                "content": json.dumps({"error": f"Tool 실행 중 오류 발생: {str(tool_e)}"}, ensure_ascii=False),
+                            }
+                        )
+
                 else:
-                    # AI가 존재하지 않는 Tool을 호출한 경우
                     conversation.append(
                         {
                             "role": "tool",
                             "name": function_name,
-                            "content": json.dumps({"error": f"Tool '{function_name}' not found."}),
+                            "content": json.dumps({"error": f"Tool '{function_name}' not found."}, ensure_ascii=False),
                         }
                     )
             
@@ -241,7 +256,7 @@ def get_response():
             # AI가 최종 답변을 생성했습니다.
             ai_response_json_str = response_message.content
             
-            # 3. AI 응답 파싱 및 추출
+            # 3. AI 응답 파싱 및 추출 (기존 로직 유지)
             try:
                 ai_response_data = json.loads(ai_response_json_str)
                 
@@ -281,7 +296,7 @@ def get_response():
 @app.route('/get_prompt_response', methods=['POST'])
 def get_prompt_response():
     """JavaScript 타이머에 의해 호출되어 AI의 재촉 메시지를 받습니다."""
-    if 'user' not in session or not client:
+    if 'user' not in session:
         return jsonify({'error': '세션 오류 또는 AI 클라이언트 초기화 실패'}), 401
 
     conversation = session.get('conversation', [])
@@ -298,10 +313,11 @@ def get_prompt_response():
     ] + conversation 
 
     try:
+        # 🚨 Tool 호출은 침묵 감지에서 필요 없으므로 'tools' 인자 제거
         chat_completion = client.chat.completions.create(
             model=MODEL_NAME, 
             messages=messages_for_api, 
-            # 🚨 Tool 호출은 침묵 감지에서 필요 없으므로 제거 (성능 최적화)
+            response_format={"type": "json_object"}
         )
         ai_response_json_str = chat_completion.choices[0].message.content
         
@@ -331,6 +347,5 @@ if __name__ == "__main__":
     print("------------------------------------------------------")
     print("🚀 서버 시작 (Ctrl+C로 종료)")
     
-    # 🚨 Railway 환경 변수 PORT를 사용하여 동적 포트 바인딩
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
