@@ -43,19 +43,29 @@
         </div>
 
         <div class="right-panel">
-            <h2>결과물 제출 및 설문조사</h2>
-            <p><strong>연구 참여 시간: 약 60분</strong></p>
-            <p>문제 해결 과정을 충분히 진행한 후, 최종 결과물을 작성하여 제출해 주세요.</p>
+            <h2>결과물 제출</h2>
+            <p>위의 **구글 드라이브 링크**에 들어가서 본인 이름의 파일에 있는 **최종 결과물 양식을 작성**해주시기 바랍니다.</p>
             
-            <textarea id="submission-text" rows="10" placeholder="여기에 학습 활동 설계 결과물을 작성하세요." style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; resize: vertical; margin-bottom: 20px; box-sizing: border-box;"></textarea>
+            <a href="{{ url_for('static', filename='files/final_form.pptx') }}" download>
+                <button class="download-button" type="button" style="width: 100%; padding: 10px; margin-bottom: 15px; background-color: #3b5998; color: white; border: none; border-radius: 8px; font-size: 1em; cursor: pointer;">
+                    결과물 제출양식 다운로드 (PPtx)
+                </button>
+            </a>
             
             <button onclick="checkTimeAndShowPopup()">
                 결과물 제출 및 학습 종료하기
             </button>
             
             <p style="margin-top: 30px; font-size: 0.9em; color: #e74c3c;">
-                **주의:** 제출/설문조사 후에는 대화 내용이 최종적으로 저장되고 연구 참여가 종료됩니다.
+                **주의:** 결과물 제출 이후 학습 종료하기 버튼을 클릭 시 대화 내용이 최종적으로 저장되고 연구 참여가 종료됩니다.
             </p>
+
+            <a href="https://docs.google.com/forms/d/e/1FAIpQLSejTDmVCKloMc2R6w_Q2G-wst8aiJ4JKcyRHurAgiv_R_RVdg/viewform" target="_blank" style="text-decoration: none;">
+                <button type="button" style="width: 100%; padding: 10px; margin-top: 10px; background-color: #BCB5E8; color: #3b5998; border: none; border-radius: 8px; font-size: 1em; cursor: pointer; font-weight: bold;">
+                    사후 설문조사 참여하기
+                </button>
+            </a>
+            </div>
         </div>
     </div>
 
