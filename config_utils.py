@@ -218,6 +218,37 @@ AI_TOOLS = {
     "get_edutech_websites": get_edutech_websites
 }
 
+# config_utils.py 파일 하단에 다음 함수를 추가해 주세요.
+# (기존 update_scaffolding_count 함수 뒤에 추가하는 것이 좋습니다.)
+
+def format_scaffolding_counts(count_filename, user_log_dir):
+    """스캐폴딩 카운트 JSON 파일을 읽어 텍스트 형식으로 포맷합니다."""
+    count_file_path = os.path.join(user_log_dir, count_filename) 
+    
+    try:
+        if not os.path.exists(count_file_path):
+            return "\n\n--- 스캐폴딩 카운트 정보 --- \n카운트 파일을 찾을 수 없습니다."
+
+        with open(count_file_path, 'r', encoding='utf-8') as f:
+            counts = json.load(f)
+            
+        formatted_text = "\n\n==================================================\n"
+        formatted_text += "--- 📊 AI 스캐폴딩 유형별 최종 카운트 결과 ---\n"
+        formatted_text += "==================================================\n"
+        
+        # 카운트가 많은 순서대로 정렬하여 출력
+        sorted_counts = sorted(counts.items(), key=lambda item: item[1], reverse=True)
+        
+        for s_type, count in sorted_counts:
+            formatted_text += f"- {s_type}: {count}회\n"
+            
+        formatted_text += "==================================================\n\n"
+        return formatted_text
+        
+    except Exception as e:
+        # 오류 발생 시에도 최소한의 정보를 남김
+        return f"\n\n--- 스캐폴딩 카운트 정보 --- \n카운트 파일 로드 또는 포맷 중 오류 발생: {e}"
+
 # 🚨 Tool Schema 정의 (OpenAI SDK용)
 TOOLS_SCHEMA = [
     {

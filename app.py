@@ -5,12 +5,13 @@ import datetime
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import json
 import time
+import shutil
 
 # --- 분리된 설정 및 유틸리티 모듈 임포트 ---
 from config_utils import (
     client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
     load_prompt_file, log_conversation_entry, update_scaffolding_count,
-    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA 
+    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA, format_scaffolding_counts # 🚨 format_scaffolding_counts 추가
 )
 # ----------------------------------------
 
@@ -46,7 +47,7 @@ def login():
             # 사용자별 로그 폴더를 생성하고 세션에 저장
             user_log_dir = os.path.join(LOGS_DIR, name)
             print(f"DEBUG: 생성 시도 경로: {user_log_dir}")
-            
+
             os.makedirs(user_log_dir, exist_ok=True)
             session['user_log_dir'] = user_log_dir
 
@@ -353,3 +354,69 @@ if __name__ == "__main__":
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=False)
+
+
+# app.py 파일 하단에 새로운 라우트 추가
+
+@app.route('/submit_and_download_log')
+def submit_and_download_log():
+    """최종 로그 파일과 카운트 횟수를 통합하여 다운로드 제공 후, 세션을 클리어합니다."""
+    if 'user' not in session or 'user_log_dir' not in session:
+        return redirect(url_for('login'))
+        
+    user_info = session['user']
+    user_log_dir = session['user_log_dir']
+    
+    # 1. 파일 이름 설정
+    log_filename = user_info['log_filename'] 
+    count_filename = 'scaffolding_counts.json'
+    
+    main_log_path = os.path.join(user_log_dir, log_filename)
+    
+    # 2. 메인 대화 로그 읽기
+    try:
+        with open(main_log_path, 'r', encoding='utf-8') as f:
+            conversation_log = f.read()
+    except FileNotFoundError:
+        # 파일이 없을 경우에도 로그아웃 처리
+        session.clear()
+        return "오류: 대화 로그 파일이 서버에 존재하지 않습니다. 먼저 대화를 시도해 주세요.", 404
+    except Exception as e:
+        print(f"🚨 ERROR: 메인 로그 파일 읽기 오류: {e}")
+        session.clear()
+        return "로그 파일을 읽는 중 서버 오류가 발생했습니다.", 500
+
+    # 3. 스캐폴딩 카운트 포맷하여 가져오기
+    count_summary = format_scaffolding_counts(count_filename, user_log_dir)
+    
+    # 4. 최종 통합 내용 생성
+    final_content = conversation_log + count_summary
+    
+    # 5. 최종 통합 파일을 /tmp에 생성 (다운로드를 위한 임시 파일)
+    final_download_filename = f"{user_info['name']}_{user_info['id']}_AI_Log.txt"
+    # Railway의 쓰기 권한이 보장된 /tmp 디렉토리에 임시 파일 생성
+    final_download_path = os.path.join('/tmp', final_download_filename)
+    
+    try:
+        with open(final_download_path, 'w', encoding='utf-8') as f:
+            f.write(final_content)
+            
+        # 6. 파일 전송 (다운로드 시작) 전에 세션 클리어 (로그아웃 처리)
+        # 이 시점에서 세션을 클리어하면, 사용자가 새로고침해도 다시 로그인 화면으로 돌아갑니다.
+        session.clear()
+        
+        response = send_file(
+            final_download_path, 
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=final_download_filename
+        )
+        
+        # 7. 응답 반환
+        return response
+
+    except Exception as e:
+        print(f"🚨 ERROR: 최종 로그 파일 생성/다운로드 중 오류 발생: {e}")
+        # 오류가 났더라도 세션 클리어는 유지
+        session.clear()
+        return "최종 로그 파일 다운로드 중 서버 오류가 발생했습니다.", 500
