@@ -362,34 +362,33 @@ if __name__ == "__main__":
 
 @app.route('/submit_and_download_log')
 def submit_and_download_log():
-    """
-    최종 로그 파일과 카운트 횟수를 통합하여 다운로드 제공합니다.
-    (세션 유지)
-    """
-    if 'user' not in session or 'user_log_dir' not in session:
-        return redirect(url_for('login'))
-        
+    # ... (생략) ...
+    
     user_info = session['user']
     user_log_dir = session['user_log_dir']
     
-    log_filename = user_info['log_filename']
-    count_filename = 'scaffolding_counts.json'
+    log_filename = session.get('log_filename')
+    # 🚨 수정: 하드코딩된 이름 대신, 세션에서 저장된 count_filename을 사용
+    count_filename = session.get('count_filename') 
     
     main_log_path = os.path.join(user_log_dir, log_filename)
     
     # 1. 메인 대화 로그 읽기
     try:
-        from config_utils import format_scaffolding_counts # 함수 임포트
+        from config_utils import format_scaffolding_counts 
         
         with open(main_log_path, 'r', encoding='utf-8') as f:
             conversation_log = f.read()
     except FileNotFoundError:
-        return "오류: 대화 로그 파일이 서버에 존재하지 않습니다. 먼저 대화를 시도해 주세요.", 404
+        session.clear()
+        return "오류: 대화 로그 파일이 서버에 존재하지 않습니다. 다시 로그인해주세요.", 404
     except Exception as e:
         print(f"🚨 ERROR: 메인 로그 파일 읽기 오류: {e}")
+        session.clear()
         return "로그 파일을 읽는 중 서버 오류가 발생했습니다.", 500
 
     # 2. 스캐폴딩 카운트 포맷하여 가져오기
+    # 🚨 수정: 세션에서 가져온 count_filename 변수를 함수에 전달
     count_summary = format_scaffolding_counts(count_filename, user_log_dir)
     
     # 3. 최종 통합 내용 생성
