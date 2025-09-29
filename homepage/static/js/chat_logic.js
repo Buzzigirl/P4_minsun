@@ -62,7 +62,8 @@ function closeModal() {
     MODAL.style.display = 'none';
 }
 
-// 4. 시간 확인 및 팝업 로직 (버튼 클릭 시 호출됨)
+// chat_logic.js 파일 내 checkTimeAndShowPopup 함수 수정
+// ... (함수 시작 부분은 동일) ...
 function checkTimeAndShowPopup() {
     const elapsedTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
     const timePassed30Minutes = elapsedTimeSeconds >= TOTAL_TIME_SECONDS;
@@ -70,7 +71,7 @@ function checkTimeAndShowPopup() {
     MODAL_BUTTONS.innerHTML = '';
     
     if (!timePassed30Minutes) {
-        // 30분 지나지 않았을 경우
+        // 1) 30분 지나지 않았을 경우 (이전과 동일)
         MODAL_MESSAGE.innerHTML = '아직 과업수행시간이 30분이 지나지 않았습니다. 동료 AI와 학습을 추가적으로 진행해주시기 바랍니다.';
         
         const backButton = document.createElement('button');
@@ -81,15 +82,17 @@ function checkTimeAndShowPopup() {
         MODAL_BUTTONS.appendChild(backButton);
         
     } else {
-        // 30분 지났을 경우
-        MODAL_MESSAGE.innerHTML = '사전에 나누어 드린 수업활동지를 구글 드라이브에 업로드 해주셨을까요?';
+        // 2) 30분 지났을 경우 (🚨 이 부분을 수정합니다)
+        MODAL_MESSAGE.innerHTML = '결과물 제출양식을 다운로드 하신 후 구글 드라이브에 업로드 해 주시면 됩니다.';
         
         const yesButton = document.createElement('button');
         yesButton.textContent = '예';
         yesButton.classList.add('btn-yes');
         yesButton.onclick = function() {
-            window.open('/submission', '_blank'); 
-            closeModal();
+            // 🚨 수정된 로직: 구글 드라이브 링크로 이동 (새 탭)
+            window.open('https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link', '_blank'); 
+            closeModal(); // 모달 닫기
+            // 추가적으로 서버에 학습 종료 신호를 보낼 수 있으나, 여기서는 링크 이동만 구현
         };
         
         const backButton = document.createElement('button');

@@ -14,13 +14,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # 로그 및 데이터 폴더 경로 설정
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
-COUNTS_DIR = os.path.join(LOGS_DIR, 'scaffolding_counts')
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 PROMPT_DIR = os.path.join(DATA_DIR, 'prompts')
 
 # 필요한 폴더 생성
 os.makedirs(LOGS_DIR, exist_ok=True)
-os.makedirs(COUNTS_DIR, exist_ok=True)
 os.makedirs(PROMPT_DIR, exist_ok=True)
 
 # --- OpenAI 클라이언트 초기화 ---
@@ -112,9 +110,11 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     with open(log_file_path, 'a', encoding='utf-8') as f:
         f.write(log_entry)
 
-def update_scaffolding_count(count_filename, s_type):
-    """스캐폴딩 유형별 횟수를 카운트하여 저장합니다."""
-    count_file_path = os.path.join(COUNTS_DIR, count_filename)
+def update_scaffolding_count(count_filename, user_log_dir, s_type): # 🚨 user_log_dir 인자 추가
+    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다."""
+    
+    # 🚨 파일 경로를 사용자 폴더 (user_log_dir) 기준으로 구성
+    count_file_path = os.path.join(user_log_dir, count_filename) 
     
     # 분류 실패 또는 유효하지 않은 유형일 경우 "분류실패"로 기록
     valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]

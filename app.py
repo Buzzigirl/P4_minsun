@@ -7,10 +7,11 @@ import json
 import time
 
 # --- 분리된 설정 및 유틸리티 모듈 임포트 ---
+# 주의: config_utils.py 파일에서 COUNTS_DIR 정의는 삭제되어야 합니다.
 from config_utils import (
     client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
     load_prompt_file, log_conversation_entry, update_scaffolding_count,
-    LOGS_DIR, COUNTS_DIR # 경로 변수도 필요에 따라 임포트
+    LOGS_DIR # LOGS_DIR은 경로 구성에 필요
 )
 # ----------------------------------------
 
@@ -44,12 +45,19 @@ def login():
             session.clear()
             session['user'] = {'name': name, 'student_id': student_id}
             
-            # 로그 파일 경로 설정
+            # 사용자별 로그 폴더를 생성하고 세션에 저장
+            user_log_dir = os.path.join(LOGS_DIR, name)
+            os.makedirs(user_log_dir, exist_ok=True)
+            # 🚨 user_log_dir 세션 변수 추가 (카운트 파일 경로 구성에 사용)
+            session['user_log_dir'] = user_log_dir 
+
             now = datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
+            
+            # 대화 로그 파일 경로 (logs/[이름]/[시간_학번].txt)
             log_filename = os.path.join(name, f"{now}_{student_id}.txt")
             session['log_filename'] = log_filename
             
-            # 스캐폴딩 카운트 파일 경로 설정
+            # 스캐폴딩 카운트 파일 이름 (logs/[이름]/[학번_이름].json)
             count_filename = f"{student_id}_{name}.json"
             session['count_filename'] = count_filename
             
@@ -62,46 +70,41 @@ def login():
             
     return render_template('login.html')
 
-# app.py 파일 내 수정할 부분
-
-# 1. /consent 라우트 수정: 동의 후 /summary로 이동하도록 변경
 @app.route('/consent', methods=['GET', 'POST'])
 def consent():
     """연구 참여 동의서 페이지"""
     if 'user' not in session:
         return redirect(url_for('login'))
         
-    log_path = os.path.join(LOGS_DIR, session.get('log_filename', 'temp.txt'))
+    log_filename = session.get('log_filename', 'temp.txt')
     
     if request.method == 'POST':
         consent_status = request.form.get('consent_check')
         
         if consent_status == 'agree':
-            log_conversation_entry(log_path, 'System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 동의함")
+            # log_conversation_entry는 log_filename을 받습니다.
+            log_conversation_entry('System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 동의함", log_filename)
             
-            # 🚩 수정: 동의 후 바로 chat 대신 summary 페이지로 이동
+            # 🚩 동의 후 summary 페이지로 이동
             return redirect(url_for('summary')) 
         else:
-            log_conversation_entry(log_path, 'System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 비동의함. 접속 종료.")
+            log_conversation_entry('System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 비동의함. 접속 종료.", log_filename)
             session.clear()
             return render_template('consent.html', error="비동의하셨습니다. 실험에 참여할 수 없습니다. 창을 닫아주세요.")
             
     return render_template('consent.html')
 
 
-# 2. 새로운 /summary 라우트 추가
 @app.route('/summary')
 def summary():
     """학습 개요 및 목표 설명 페이지"""
     if 'user' not in session:
         return redirect(url_for('login'))
         
-    # config_utils에서 로드한 학습 내용을 다시 로드
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
     
-    # 학습자 중심 모델 내용을 추가 (만약 이 내용이 별도 파일에 없다면, 여기에 직접 작성하거나 load_prompt_file로 로드해야 합니다.)
     learner_model = "**<학습자 중심 모델>**\n\n학습 활동 설계의 이론적 기반입니다. 이 모델을 염두에 두고 활동을 설계해 주세요."
     
     return render_template('summary.html', 
@@ -109,7 +112,7 @@ def summary():
                             situation=situation,
                             rules=rules,
                             task=task,
-                            learner_model=learner_model) # 새로운 변수 전달
+                            learner_model=learner_model)
 
 @app.route('/chat')
 def chat():
@@ -117,9 +120,9 @@ def chat():
     if 'user' not in session:
         return redirect(url_for('login'))
     
+    # 아바타 경로는 peer_avatar.webp로 가정
     avatar_url = url_for('static', filename='images/peer_avatar.webp')
     
-    # 프롬프트 내용을 config_utils.py의 함수로 로드
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
@@ -134,7 +137,6 @@ def chat():
         conversation.append({"role": "assistant", "content": initial_greeting})
         session['conversation'] = conversation
         
-        # 로그 함수 사용
         log_conversation_entry('AI', initial_greeting, log_filename, scaffolding_type="일반")
     # -----------------------------------------------
     
@@ -161,6 +163,9 @@ def get_response():
     conversation = session.get('conversation', [])
     log_filename = session.get('log_filename', 'temp.txt')
     count_filename = session.get('count_filename', 'temp.json')
+    # 🚨 user_log_dir 변수 가져오기 (config_utils의 update_scaffolding_count 함수에 전달)
+    user_log_dir = session.get('user_log_dir', LOGS_DIR) 
+
 
     # 1. 사용자 메시지 추가 및 로그 저장
     conversation.append({"role": "user", "content": user_message})
@@ -201,8 +206,8 @@ def get_response():
         
         log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
         
-        # 4. 스캐폴딩 횟수 카운트 업데이트
-        update_scaffolding_count(count_filename, scaffolding_type)
+        # 4. 스캐폴딩 횟수 카운트 업데이트 (🚨 user_log_dir 인자 추가)
+        update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
         
         # 5. 채팅창에는 순수 텍스트만 전송
         return jsonify({'response': response_text})
