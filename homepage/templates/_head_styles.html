@@ -11,7 +11,7 @@
         align-items: center;    /* 수직 중앙 */
         height: 100vh;
         margin: 0;
-        overflow: hidden;
+        overflow: hidden; /* 모바일에서 깨짐 방지를 위해 데스크톱은 숨김 */
     }
     .main-wrapper {
         display: flex;
@@ -108,7 +108,7 @@
         justify-content: flex-start;
     }
 
-    /* 🚩 아바타 크기 수정: 48px -> 96px */
+    /* 🚩 아바타 크기: 96px */
     .avatar {
         width: 96px; 
         height: 96px; 
@@ -116,14 +116,14 @@
         margin-right: 15px;
         flex-shrink: 0;
         object-fit: cover;
-        border: 3px solid #4285f4; /* 테두리 두께도 3px로 조정 */
+        border: 3px solid #4285f4; 
     }
     .user-message-row .avatar {
         display: none;
     }
     
     .message-content {
-        max-width: 85%; 
+        max-width: 85%; /* 줄 바꿈 개선 */
         padding: 15px 20px;
         border-radius: 24px;
         line-height: 1.5;
@@ -190,5 +190,73 @@
     @keyframes dot-loading {
         0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
         40% { transform: scale(1); background-color: #1a73e8; opacity: 1; }
+    }
+    
+    /* -------------------------------------- */
+    /* 🚩 모바일 대응: @media 쿼리 추가 */
+    /* -------------------------------------- */
+    @media (max-width: 768px) {
+        
+        /* 1. 기본 body 설정 변경 (스크롤 허용) */
+        body {
+            height: auto;
+            min-height: 100vh;
+            overflow-y: auto; /* 스크롤 허용 */
+            align-items: flex-start;
+        }
+
+        /* 2. 메인 레이아웃을 세로 스택으로 변경 */
+        .main-wrapper {
+            flex-direction: column; /* 가로(채팅/제출)를 세로로 변경 */
+            height: auto;
+            width: 100%; /* 전체 너비 사용 */
+            max-width: 100%;
+            margin: 0;
+            min-height: 100vh;
+            border-radius: 0;
+            box-shadow: none;
+        }
+        
+        /* 3. 중앙 채팅 영역 (화면 상단 차지) */
+        .center-panel {
+            width: 100%;
+            min-height: 55vh; /* 채팅창이 화면 절반 이상 차지 */
+            border-radius: 0;
+            box-shadow: none;
+            order: 1; /* 상단 배치 */
+        }
+
+        /* 4. 오른쪽 제출 패널 (화면 하단 차지) */
+        .right-panel {
+            width: 100%;
+            margin: 0; /* 좌우 마진 제거 */
+            padding: 20px;
+            border-radius: 0;
+            order: 2; /* 하단 배치 */
+            border-top: 10px solid #eef1f5; /* 구분선 */
+        }
+
+        /* 5. 메시지 및 아바타 크기 조정 */
+        .avatar {
+            width: 64px; /* 아바타 크기 조정 */
+            height: 64px;
+        }
+        .message-content {
+            max-width: 90%; /* 메시지 버블이 화면을 거의 가득 채우도록 */
+            font-size: 0.9em;
+        }
+
+        /* 6. 입력 폼 조정 */
+        .input-form {
+            padding: 10px 15px; 
+        }
+        .input-form input {
+            padding: 12px 15px; 
+            font-size: 14px;
+        }
+        .input-form button {
+            width: 40px;
+            height: 40px;
+        }
     }
 </style>

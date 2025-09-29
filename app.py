@@ -217,6 +217,54 @@ def get_response():
         log_conversation_entry('System_Error', f"API 호출 오류 발생: {e}", log_filename)
         return jsonify({'error': 'AI 응답을 가져오는 데 실패했습니다. API 키 또는 네트워크 상태를 확인하세요.'}), 500
 
+# app.py 파일에 추가할 라우트
+
+@app.route('/get_prompt_response', methods=['POST'])
+def get_prompt_response():
+    """JavaScript 타이머에 의해 호출되어 AI의 재촉 메시지를 받습니다."""
+    if 'user' not in session or not client:
+        return jsonify({'error': '세션 오류 또는 AI 클라이언트 초기화 실패'}), 401
+
+    # 세션에서 현재 대화 이력과 로그 파일 이름을 가져옵니다.
+    conversation = session.get('conversation', [])
+    log_filename = session.get('log_filename', 'temp.txt')
+
+    # 🚩 5분 침묵에 대한 특별 시스템 메시지를 추가
+    prompt_message = "5분 동안 사용자로부터 응답이 없습니다. 프롬프트 규칙 1번(침묵 감지 및 재촉)에 따라, '지금 어디까지 생각해봤거나 어디까지 진행되었어? 하면서 어떤 부분이 어렵니?'와 같은 내용으로 사용자의 대화를 재촉하는 메시지를 생성하세요."
+
+    # API 호출을 위한 메시지 리스트 구성
+    messages_for_api = [
+        {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt_message} # 🚩 재촉을 위한 특별 메시지
+    ] + conversation # 기존 대화 이력도 함께 보냅니다.
+
+    try:
+        chat_completion = client.chat.completions.create(
+            model=MODEL_NAME, 
+            messages=messages_for_api, 
+            response_format={"type": "json_object"}
+        )
+        ai_response_json_str = chat_completion.choices[0].message.content
+        
+        # JSON 파싱 및 응답 추출
+        ai_response_data = json.loads(ai_response_json_str)
+        response_text = ai_response_data.get("response_text", "다시 시도해 주세요.")
+        scaffolding_type = ai_response_data.get("scaffolding_type", "동기적 스캐폴딩") # 재촉은 동기적 스캐폴딩으로 간주
+
+        # 🚩 AI 응답을 세션에 저장 및 로그에 기록
+        conversation.append({"role": "assistant", "content": response_text})
+        session['conversation'] = conversation
+        log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
+        
+        # 🚩 카운트 업데이트는 하지 않습니다. (실제 대화 시작 전이므로)
+        
+        return jsonify({'response': response_text})
+
+    except Exception as e:
+        print(f"🚨 ERROR: 침묵 감지 API 호출 오류: {e}")
+        log_conversation_entry('System_Error', f"침묵 감지 오류 발생: {e}", log_filename)
+        return jsonify({'error': 'AI 재촉 메시지를 가져오는 데 실패했습니다.'}), 500
+
 if __name__ == "__main__":
     print("======================================================")
     print("✅ 서버 준비 완료.")
