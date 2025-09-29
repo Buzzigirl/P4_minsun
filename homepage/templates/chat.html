@@ -8,7 +8,6 @@
     <script>
         window.AVATAR_URL = "{{ AVATAR_URL }}";
         window.PLACEHOLDER_AVATAR_URL = "{{ url_for('static', filename='images/peer_placeholder.webp') }}";
-        // 🚩 수정: USER_ID (학번) 변수 추가
         window.USER_ID = "{{ session['user']['student_id'] }}"; 
     </script>
 </head>
@@ -73,12 +72,6 @@
                     사후 설문조사 참여하기
                 </button>
             </a>
-
-            </div>
-
-            <p style="margin-top: 5px; font-size: 0.9em; color: #e74c3c;">
-                주의: 결과물 제출 및 학습 종료 이후 설문조사에 참여해주세요.
-            </p>
         </div>
     </div>
 
