@@ -45,6 +45,8 @@ def login():
             
             # 사용자별 로그 폴더를 생성하고 세션에 저장
             user_log_dir = os.path.join(LOGS_DIR, name)
+            print(f"DEBUG: 생성 시도 경로: {user_log_dir}")
+            
             os.makedirs(user_log_dir, exist_ok=True)
             session['user_log_dir'] = user_log_dir
 

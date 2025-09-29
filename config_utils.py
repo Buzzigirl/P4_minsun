@@ -134,8 +134,11 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
         
     log_dir = os.path.dirname(log_file_path)
     
+    # 🚩 진단용 코드 추가: 파일 쓰기 시도 경로를 명확히 출력
+    print(f"DEBUG: Attempting to write log to: {log_file_path}")
+    
     try:
-        # 🚩 Railway 쓰기 권한 확보 및 폴더 생성
+        # Railway 쓰기 권한 확보 및 폴더 생성
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True) 
             
@@ -143,6 +146,7 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
             f.write(log_entry)
             
     except Exception as e:
+        # 🚨 오류 발생 시, Railway 로그에서 오류 유형과 경로를 명확히 확인
         print(f"🚨🚨 CRITICAL LOG WRITE FAIL: 로그 파일 저장 실패: {log_file_path} ({e})")
 
 
