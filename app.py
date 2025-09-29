@@ -360,51 +360,56 @@ if __name__ == "__main__":
 
 # app.py 파일 내 submit_and_download_log 라우트 함수 수정
 
+# app.py 파일 내 submit_and_download_log 라우트 (수정)
+
 @app.route('/submit_and_download_log')
 def submit_and_download_log():
-    # ... (생략) ...
-    
+    """최종 로그 파일과 카운트 횟수를 통합하여 다운로드 제공합니다. (세션 유지)"""
+    if 'user' not in session or 'user_log_dir' not in session:
+        return redirect(url_for('login'))
+        
     user_info = session['user']
     user_log_dir = session['user_log_dir']
     
-    log_filename = session.get('log_filename')
-    # 🚨 수정: 하드코딩된 이름 대신, 세션에서 저장된 count_filename을 사용
-    count_filename = session.get('count_filename') 
+    # 세션에서 파일명 로드
+    log_filename_relative = session.get('log_filename') # 예: 테스트/시간_학번.txt
+    count_filename = session.get('count_filename')
     
-    main_log_path = os.path.join(user_log_dir, log_filename)
+    # 🚨 핵심: 최종 경로 재확인
+    main_log_path = os.path.join(LOGS_DIR, log_filename_relative)
+    count_file_path = os.path.join(user_log_dir, count_filename) # user_log_dir은 이미 LOGS_DIR/이름
     
+    print(f"DEBUG: 로그 다운로드 시도 (LOG): {main_log_path}")
+    print(f"DEBUG: 카운트 파일 경로 (COUNT): {count_file_path}")
+
     # 1. 메인 대화 로그 읽기
     try:
-        from config_utils import format_scaffolding_counts 
+        from config_utils import format_scaffolding_counts # 함수 임포트
         
         with open(main_log_path, 'r', encoding='utf-8') as f:
             conversation_log = f.read()
+            
     except FileNotFoundError:
-        session.clear()
-        return "오류: 대화 로그 파일이 서버에 존재하지 않습니다. 다시 로그인해주세요.", 404
+        # 🚨 오류 메시지 구체화
+        print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}")
+        return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 경로를 확인하세요: {main_log_path}", 404
     except Exception as e:
         print(f"🚨 ERROR: 메인 로그 파일 읽기 오류: {e}")
-        session.clear()
         return "로그 파일을 읽는 중 서버 오류가 발생했습니다.", 500
 
     # 2. 스캐폴딩 카운트 포맷하여 가져오기
-    # 🚨 수정: 세션에서 가져온 count_filename 변수를 함수에 전달
     count_summary = format_scaffolding_counts(count_filename, user_log_dir)
     
-    # 3. 최종 통합 내용 생성
-    final_content = conversation_log + count_summary
-    
-    # 4. 최종 통합 파일을 /tmp에 생성 (다운로드를 위한 임시 파일)
-    final_download_filename = f"{user_info['name']}_{user_info['id']}_AI_Log.txt"
+    # 3. 최종 통합 내용 생성 (다운로드를 위한 임시 파일)
+    final_download_filename = f"{user_info['name']}_{user_info['student_id']}_AI_Log.txt"
     final_download_path = os.path.join('/tmp', final_download_filename)
-    
+    final_content = conversation_log + count_summary
+
     try:
         with open(final_download_path, 'w', encoding='utf-8') as f:
             f.write(final_content)
             
-        # 🚨 session.clear() 로직 제거! 세션은 유지됩니다.
-
-        # 5. 파일 전송 (다운로드 시작)
+        # 4. 파일 전송 (다운로드 시작)
         response = send_file(
             final_download_path, 
             mimetype='text/plain',
@@ -412,10 +417,9 @@ def submit_and_download_log():
             download_name=final_download_filename
         )
         
-        # 6. 응답 반환
+        # 세션 유지는 유지
         return response
 
     except Exception as e:
         print(f"🚨 ERROR: 최종 로그 파일 생성/다운로드 중 오류 발생: {e}")
-        # 오류가 나더라도 세션은 유지
         return "최종 로그 파일 다운로드 중 서버 오류가 발생했습니다.", 500
