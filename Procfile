@@ -1,1 +1,2 @@
-﻿web: waitress-serve --port=$PORT app:app
+﻿## web: waitress-serve --port=$PORT app:app
+web: gunicorn app:app -w 4 --threads 4 -b 0.0.0.0:$PORT
