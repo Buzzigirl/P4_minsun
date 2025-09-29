@@ -107,9 +107,33 @@ except json.JSONDecodeError as e:
     AUTHORIZED_USERS = {}
 
 
+# config_utils.py (최종)
+
+import os
+import json
+from openai import OpenAI
+import datetime
+
+# --- 환경 변수 로드 및 초기 설정 ---
+# BASE_DIR을 기준으로 상대 경로 설정이 중요
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+LOGS_DIR = os.path.join(BASE_DIR, 'logs')
+DATA_DIR = os.path.join(BASE_DIR, 'data')
+PROMPT_DIR = os.path.join(DATA_DIR, 'prompts')
+
+# 필요한 폴더 생성 (서버 시작 시 한 번)
+os.makedirs(LOGS_DIR, exist_ok=True)
+os.makedirs(PROMPT_DIR, exist_ok=True)
+
+# ... (OpenAI 클라이언트 초기화 및 프롬프트 로드 함수 유지) ...
+# ... (RAG 데이터 로드 및 Tool 함수 정의 유지) ...
+# ... (AUTHORIZED_USERS 로드 유지) ...
+# ----------------------------------------------------
+
+# --- 로그 및 카운트 관리 함수 (try/except 강화) ---
+
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
-    """대화 항목을 TXT 로그 파일에 추가합니다."""
-    # log_filename은 '이름/시간_학번.txt' 형태이므로 LOGS_DIR과 합쳐 전체 경로를 구성
+    """대화 항목을 TXT 로그 파일에 추가합니다. (파일 쓰기 오류 처리 강화)"""
     log_file_path = os.path.join(LOGS_DIR, log_filename)
     now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
@@ -120,31 +144,30 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
         log_entry = f"[{now_str}] AI{label}: {text}\n"
         log_entry += f"----------------------------------------\n\n"
         
-    # 🚨 경로가 없으면 자동으로 폴더 생성 (로그 저장의 핵심)
     log_dir = os.path.dirname(log_file_path)
-    if log_dir and not os.path.exists(log_dir):
-        os.makedirs(log_dir, exist_ok=True) 
-        
+    # 🚨 파일 쓰기 전에 폴더 생성 로직 포함
     try:
+        if log_dir and not os.path.exists(log_dir):
+            os.makedirs(log_dir, exist_ok=True) 
+            
         with open(log_file_path, 'a', encoding='utf-8') as f:
             f.write(log_entry)
+            
     except Exception as e:
-        print(f"🚨 ERROR: 로그 파일 저장 실패: {log_file_path} ({e})")
+        print(f"🚨🚨 CRITICAL LOG ERROR: 로그 파일 저장 실패: {log_file_path} ({e})")
 
 
 def update_scaffolding_count(count_filename, user_log_dir, s_type): 
-    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다."""
+    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (파일 쓰기 오류 처리 강화)"""
     
-    # 파일 경로를 사용자 폴더 (user_log_dir) 기준으로 구성
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
-    # 분류 실패 또는 유효하지 않은 유형일 경우 "분류실패"로 기록
     valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
     if s_type not in valid_types:
         s_type = "분류실패"
         
+    # 🚨 파일 쓰기 전 폴더 존재 확인 (user_log_dir은 app.py에서 생성되었지만 안전을 위해 확인)
     try:
-        # 🚨 카운트 파일 저장 전 폴더 존재 확인 및 생성 (카운트 저장의 핵심)
         if not os.path.exists(user_log_dir):
             os.makedirs(user_log_dir, exist_ok=True)
             
@@ -152,7 +175,6 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
             with open(count_file_path, 'r', encoding='utf-8') as f:
                 counts = json.load(f)
         else:
-            # 초기화 시 모든 유형을 초기화
             counts = {t: 0 for t in valid_types + ["분류실패"]}
 
         counts[s_type] = counts.get(s_type, 0) + 1
@@ -161,7 +183,7 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
             json.dump(counts, f, ensure_ascii=False, indent=4)
             
     except Exception as e:
-        print(f"🚨 ERROR: 카운트 파일 저장 실패: {count_file_path} ({e})")
+        print(f"🚨🚨 CRITICAL COUNT ERROR: 카운트 파일 저장 실패: {count_file_path} ({e})")
 
 # ----------------------------------------------------
 # 🚩 Tool 함수 정의 (RAG 구현을 위한 핵심 로직)

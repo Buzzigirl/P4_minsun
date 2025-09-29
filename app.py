@@ -144,6 +144,9 @@ def chat():
                             chat_history=chat_history,
                             AVATAR_URL=avatar_url)
 
+# ----------------------------------------------------
+# 🚩 /get_response 라우트 (Tool-Calling 및 로그 통합 로직)
+# ----------------------------------------------------
 @app.route('/get_response', methods=['POST'])
 def get_response():
     """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 포함)"""
@@ -179,6 +182,7 @@ def get_response():
                 response_format={"type": "json_object"}
             )
         except Exception as e:
+            # API 호출 실패 시 사용자 메시지 제거 후 오류 반환
             if conversation and conversation[-1].get('role') == 'user':
                 conversation.pop()
                 session['conversation'] = conversation 
@@ -203,7 +207,7 @@ def get_response():
                 
                 if function_to_call:
                     try:
-                        # 🚩 수정: Tool 인자 파싱 오류 방지 및 안전한 로드
+                        # 🚩 JSON 파싱 오류 방지 및 안전한 로드
                         if tool_call.function.arguments:
                             function_args = json.loads(tool_call.function.arguments)
                         else:
@@ -231,7 +235,7 @@ def get_response():
                             }
                         )
                     except Exception as tool_e:
-                         # Tool 함수 실행 중 예상치 못한 오류 발생
+                        # Tool 함수 실행 중 예상치 못한 오류 발생
                         conversation.append(
                             {
                                 "role": "tool",
@@ -256,7 +260,7 @@ def get_response():
             # AI가 최종 답변을 생성했습니다.
             ai_response_json_str = response_message.content
             
-            # 3. AI 응답 파싱 및 추출 (기존 로직 유지)
+            # 3. AI 응답 파싱 및 추출 (로그 및 카운트 기록)
             try:
                 ai_response_data = json.loads(ai_response_json_str)
                 
@@ -313,7 +317,7 @@ def get_prompt_response():
     ] + conversation 
 
     try:
-        # 🚨 Tool 호출은 침묵 감지에서 필요 없으므로 'tools' 인자 제거
+        # Tool 호출은 침묵 감지에서 필요 없으므로 'tools' 인자 제거
         chat_completion = client.chat.completions.create(
             model=MODEL_NAME, 
             messages=messages_for_api, 
@@ -326,12 +330,10 @@ def get_prompt_response():
         response_text = ai_response_data.get("response_text", "다시 시도해 주세요.")
         scaffolding_type = ai_response_data.get("scaffolding_type", "동기적 스캐폴딩") 
 
-        # AI 응답을 세션에 저장 및 로그에 기록
         conversation.append({"role": "assistant", "content": response_text})
         session['conversation'] = conversation
         log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
         
-        # 스캐폴딩 횟수 카운트 업데이트
         update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
         
         return jsonify({'response': response_text})
