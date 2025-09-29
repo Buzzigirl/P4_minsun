@@ -46,16 +46,17 @@
 
         <div class="right-panel">
             <h2>결과물 제출</h2>
-            <p>아래의 **구글 드라이브 링크**에 들어가서 본인 이름 폴더에 최종 결과물을 제출해주시기 바랍니다.</p>
+            <p>아래의 버튼을 클릭하여 최종 결과물 제출 및 학습을 종료해 주시기 바랍니다.</p>
             
-            <p style="margin-bottom: 25px; font-weight: bold;">
-                구글 드라이브 링크: 
-                <a href="https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link" target="_blank" style="color: #1a73e8; text-decoration: none;">[제출 폴더 바로가기]</a>
-            </p>
-
             <a href="{{ url_for('static', filename='files/final_form.pptx') }}" download>
                 <button class="download-button" type="button" style="width: 100%; padding: 10px; margin-bottom: 15px; background-color: #3b5998; color: white; border: none; border-radius: 8px; font-size: 1em; cursor: pointer;">
-                    결과물 제출양식 다운로드 (PPtx)
+                    결과물 제출양식 다운로드 (ppt)
+                </button>
+            </a>
+            
+            <a href="{{ url_for('submit_and_download_log') }}" download>
+                <button type="button" style="width: 100%; padding: 10px; margin-bottom: 25px; background-color: #6c757d; color: white; border: none; border-radius: 8px; font-size: 1em; cursor: pointer;">
+                    대화로그 파일 다운로드 (txt)
                 </button>
             </a>
             
@@ -64,7 +65,7 @@
             </button>
             
             <p style="margin-top: 30px; font-size: 0.9em; color: #e74c3c;">
-                **주의:** 결과물 제출 및 학습 종료하기 버튼을 클릭 시 **대화 로그가 다운로드**되고 **연구 참여가 종료**됩니다.
+                **주의:** 결과물 제출 및 학습 종료하기 버튼 클릭 시 연구 참여가 종료됩니다.
             </p>
 
             <a href="https://docs.google.com/forms/d/e/1FAIpQLSejTDmVCKloMc2R6w_Q2G-wst8aiJ4JKcyRHurAgiv_R_RVdg/viewform" target="_blank" style="text-decoration: none;">
@@ -73,8 +74,10 @@
                 </button>
             </a>
 
+            </div>
+
             <p style="margin-top: 5px; font-size: 0.9em; color: #e74c3c;">
-                **주의:** 결과물 제출 및 학습 종료 이후 설문조사에 참여해주세요.
+                주의: 결과물 제출 및 학습 종료 이후 설문조사에 참여해주세요.
             </p>
         </div>
     </div>
