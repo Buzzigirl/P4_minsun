@@ -47,14 +47,39 @@ def load_prompt_file(filename):
     except FileNotFoundError:
         print(f"🚨 오류: '{file_path}' 파일을 찾을 수 없습니다.")
         return f"'{filename}' 파일을 불러오는 데 실패했습니다."
+    
+# 🚩 JSON 파일 경로
+EDUTECH_TOOLS_PATH = os.path.join(PROMPT_DIR, 'ai_edutech_tools.json')
+WEBSITES_PATH = os.path.join(PROMPT_DIR, 'edutech_websites.json')
+
+# 🚩 서버 시작 시 데이터를 메모리에 로드
+try:
+    with open(EDUTECH_TOOLS_PATH, 'r', encoding='utf-8') as f:
+        EDUTECH_TOOLS_DATA = json.load(f)
+    print("INFO: Edutech tools data loaded successfully.")
+except Exception as e:
+    print(f"🚨 ERROR: Edutech tools data loading failed: {e}")
+    EDUTECH_TOOLS_DATA = []
+
+try:
+    with open(WEBSITES_PATH, 'r', encoding='utf-8') as f:
+        EDUTECH_WEBSITES_DATA = json.load(f)
+    print("INFO: Edutech websites data loaded successfully.")
+except Exception as e:
+    print(f"🚨 ERROR: Edutech websites data loading failed: {e}")
+    EDUTECH_WEBSITES_DATA = []
 
 def get_integrated_system_prompt():
     """시스템 프롬프트, 상황, 규칙, 과제를 통합하여 반환합니다."""
+    # 각 내용을 파일에서 로드
     system_base = load_prompt_file('system_prompt.md')
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
+    # 🚩 학습자 모델 정보 로드 추가
+    learner_model_data = load_prompt_file('learner_model.md') 
     
+    # 통합된 시스템 프롬프트 구성
     return f"""
 {system_base}
 ---
@@ -69,8 +94,14 @@ def get_integrated_system_prompt():
 
 ## 3. 해결 과제 (Task)
 {task}
+
+---
+# 🧠 동료 AI의 핵심 자료 (Knowledge Base for Rule Compliance)
+학습자 중심 학습 모델에 대한 질문을 받을 경우, 반드시 아래 자료에 기반하여 답변해야 한다.
+{learner_model_data}
 ---
 """
+# INTEGRATED_SYSTEM_PROMPT = get_integrated_system_prompt()
 
 # 통합된 프롬프트는 서버 시작 시 한번만 로드
 INTEGRATED_SYSTEM_PROMPT = get_integrated_system_prompt()
@@ -110,10 +141,9 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     with open(log_file_path, 'a', encoding='utf-8') as f:
         f.write(log_entry)
 
-def update_scaffolding_count(count_filename, user_log_dir, s_type): # 🚨 user_log_dir 인자 추가
+def update_scaffolding_count(count_filename, user_log_dir, s_type): 
     """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다."""
     
-    # 🚨 파일 경로를 사용자 폴더 (user_log_dir) 기준으로 구성
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
     # 분류 실패 또는 유효하지 않은 유형일 경우 "분류실패"로 기록
@@ -132,3 +162,73 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type): # 🚨 user_
     
     with open(count_file_path, 'w', encoding='utf-8') as f:
         json.dump(counts, f, ensure_ascii=False, indent=4)
+
+# ----------------------------------------------------
+# 🚩 Tool 함수 정의 (RAG 구현을 위한 핵심 로직)
+# ----------------------------------------------------
+
+# 🚨 Tool 함수 1: 에듀테크 도구 검색 (2번 질문 유형)
+def search_edutech_tool(category: str) -> str:
+    """
+    주어진 카테고리에 해당하는 인공지능 기반 에듀테크 도구를 검색하여 도구명, 웹사이트, 설명을 JSON 문자열로 반환합니다.
+    사용 가능한 카테고리는 '소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구'입니다.
+    """
+    if not EDUTECH_TOOLS_DATA:
+        return json.dumps({"error": "도구 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
+
+    results = [
+        item for item in EDUTECH_TOOLS_DATA
+        if item.get('카테고리', '').lower() == category.lower()
+    ]
+    
+    if not results:
+        return json.dumps({"message": f"'{category}' 카테고리에 해당하는 도구를 찾을 수 없습니다."}, ensure_ascii=False)
+
+    # 응답 토큰 절약을 위해 상위 5개만 반환
+    return json.dumps(results[:5], ensure_ascii=False)
+
+
+# 🚨 Tool 함수 2: 에듀테크 사이트 정보 검색 (3번 질문 유형)
+def get_edutech_websites() -> str:
+    """
+    에듀테크 관련 정보 사이트 목록을 검색하여 사이트명, 주소, 특징을 JSON 문자열로 반환합니다.
+    """
+    if not EDUTECH_WEBSITES_DATA:
+        return json.dumps({"error": "웹사이트 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
+        
+    return json.dumps(EDUTECH_WEBSITES_DATA, ensure_ascii=False)
+
+# 🚨 AI가 사용할 Tool 목록 정의
+AI_TOOLS = {
+    "search_edutech_tool": search_edutech_tool,
+    "get_edutech_websites": get_edutech_websites
+}
+
+# 🚨 Tool Schema 정의 (OpenAI SDK용)
+TOOLS_SCHEMA = [
+    {
+        "type": "function",
+        "function": {
+            "name": search_edutech_tool.__name__,
+            "description": search_edutech_tool.__doc__,
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {
+                        "type": "string",
+                        "description": "사용자가 원하는 에듀테크 도구의 카테고리 ('소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구' 중 하나)"
+                    }
+                },
+                "required": ["category"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": get_edutech_websites.__name__,
+            "description": get_edutech_websites.__doc__,
+            "parameters": {"type": "object", "properties": {}} # 인자 없음
+        }
+    }
+]
