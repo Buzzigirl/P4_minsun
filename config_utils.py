@@ -107,10 +107,9 @@ except json.JSONDecodeError as e:
     AUTHORIZED_USERS = {}
 
 
-# --- 로그 및 카운트 관리 함수 (기존 코드 유지) ---
-
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     """대화 항목을 TXT 로그 파일에 추가합니다."""
+    # log_filename은 '이름/시간_학번.txt' 형태이므로 LOGS_DIR과 합쳐 전체 경로를 구성
     log_file_path = os.path.join(LOGS_DIR, log_filename)
     now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
@@ -121,15 +120,22 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
         log_entry = f"[{now_str}] AI{label}: {text}\n"
         log_entry += f"----------------------------------------\n\n"
         
+    # 🚨 경로가 없으면 자동으로 폴더 생성 (로그 저장의 핵심)
     log_dir = os.path.dirname(log_file_path)
-    os.makedirs(log_dir, exist_ok=True) 
+    if log_dir and not os.path.exists(log_dir):
+        os.makedirs(log_dir, exist_ok=True) 
         
-    with open(log_file_path, 'a', encoding='utf-8') as f:
-        f.write(log_entry)
+    try:
+        with open(log_file_path, 'a', encoding='utf-8') as f:
+            f.write(log_entry)
+    except Exception as e:
+        print(f"🚨 ERROR: 로그 파일 저장 실패: {log_file_path} ({e})")
+
 
 def update_scaffolding_count(count_filename, user_log_dir, s_type): 
     """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다."""
     
+    # 파일 경로를 사용자 폴더 (user_log_dir) 기준으로 구성
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
     # 분류 실패 또는 유효하지 않은 유형일 경우 "분류실패"로 기록
@@ -137,17 +143,25 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
     if s_type not in valid_types:
         s_type = "분류실패"
         
-    if os.path.exists(count_file_path):
-        with open(count_file_path, 'r', encoding='utf-8') as f:
-            counts = json.load(f)
-    else:
-        # 초기화 시 모든 유형을 초기화
-        counts = {t: 0 for t in valid_types + ["분류실패"]}
+    try:
+        # 🚨 카운트 파일 저장 전 폴더 존재 확인 및 생성 (카운트 저장의 핵심)
+        if not os.path.exists(user_log_dir):
+            os.makedirs(user_log_dir, exist_ok=True)
+            
+        if os.path.exists(count_file_path):
+            with open(count_file_path, 'r', encoding='utf-8') as f:
+                counts = json.load(f)
+        else:
+            # 초기화 시 모든 유형을 초기화
+            counts = {t: 0 for t in valid_types + ["분류실패"]}
 
-    counts[s_type] = counts.get(s_type, 0) + 1
-    
-    with open(count_file_path, 'w', encoding='utf-8') as f:
-        json.dump(counts, f, ensure_ascii=False, indent=4)
+        counts[s_type] = counts.get(s_type, 0) + 1
+        
+        with open(count_file_path, 'w', encoding='utf-8') as f:
+            json.dump(counts, f, ensure_ascii=False, indent=4)
+            
+    except Exception as e:
+        print(f"🚨 ERROR: 카운트 파일 저장 실패: {count_file_path} ({e})")
 
 # ----------------------------------------------------
 # 🚩 Tool 함수 정의 (RAG 구현을 위한 핵심 로직)
