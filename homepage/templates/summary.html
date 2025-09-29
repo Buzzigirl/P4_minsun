@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    {% include '_head_styles.html' %} 
+    <style>
+        /* summary 페이지를 위한 스타일 오버라이드 및 레이아웃 조정 */
+        
+        /* 1. 전체 컨테이너 및 중앙 정렬 */
+        body {
+            height: auto; 
+            min-height: 100vh;
+            padding: 40px 0; 
+            display: flex; 
+            align-items: flex-start; 
+            overflow-y: auto !important; /* 스크롤 강제 허용 */
+        }
+        .summary-wrapper {
+            max-width: 1000px;
+            width: 90%;
+            padding: 40px 60px; 
+            margin: 0 auto; 
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* 2. 제목 스타일 */
+        .summary-wrapper h1 {
+            color: #1a73e8;
+            border-bottom: 3px solid #1a73e8;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-weight: 800;
+            font-size: 1.8em;
+        }
+        
+        /* 3. 섹션 간격 및 제목 간격 조정 */
+        .summary-section {
+            margin-bottom: 30px; /* 섹션 간격 유지 */
+            padding-left: 15px;
+            border-left: 4px solid #f0f4f9;
+        }
+        .summary-section h3 {
+            color: #3c4043;
+            margin-top: 0;
+            margin-bottom: 5px; 
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+        .summary-wrapper p {
+            line-height: 1.6; 
+            color: #5f6368;
+            font-size: 0.95em; 
+            margin-top: 5px; 
+            white-space: pre-wrap;
+        }
+
+        /* 학습 모델 강조 박스 스타일 */
+        .learner-model-box {
+            background-color: #e8f0fe; /* Google Blue Light */
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+            border-left: 5px solid #1a73e8;
+        }
+        .learner-model-box h3 {
+            color: #1a73e8 !important; 
+            margin-bottom: 10px;
+        }
+        .learner-model-box p {
+            font-weight: 500;
+            color: #1a73e8;
+            font-size: 1em;
+            margin-top: 0;
+        }
+
+        /* 시작하기 버튼 스타일 */
+        .start-button {
+            width: 100%;
+            padding: 15px;
+            background-color: #34a853; 
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 30px;
+        }
+        .start-button:hover {
+            background-color: #278f48;
+        }
+    </style>
+</head>
+<body>
+    <div class="summary-wrapper">
+        <h1>연구 개요 및 학습 활동 안내</h1>
+        
+        <div class="summary-section">
+            <h3>🤝 동료 학습자님 환영합니다! ({{ user_name }}님)</h3>
+            <p>우리는 지금부터 교내 음식물 쓰레기 문제를 해결할 AI 기반 학습 활동을 함께 설계할 것입니다. AI 동료와 협력하여 과제 목표를 달성해 주세요.</p>
+        </div>
+
+        <div class="summary-section">
+            <h3>💡 문제 상황</h3>
+            <p>교육과학관 내에는 공식 입점한 교내 식당 및 카페를 제외한 배달음식 반입이 금지되어 있습니다. 하지만 교육과학관을 이용하는 대학생들과 대학원생들이 계속 외부 음식 및 음료를 반입하여 건물 환경 오염 및 음식물 분리수거 문제가 발생하고 있습니다.</p>
+        </div>
+        
+        <div class="learner-model-box">
+            <h3>📝 학습 과업</h3>
+            <p>우리는 위의 문제상황을 개선하기 위해 연세대학교 교육과학관 음식물 쓰레기 처리관련 문제의 경각심을 인지시키고 외부 음식물 쓰레기 반입을 하지 않도록 설득할 수 있는 효과적인 수업활동을 설계해보려고 합니다. <br><br>동료 AI와 대화하면서 사전에 나누어 드린 수업활동지를 작성해봅시다.</p>
+        </div>
+
+        <div class="summary-section">
+            <h3>⏰ 과업 수행 시간</h3>
+            <p>최소 30분 동안 문제해결과정에 참여해주셔야 하며, 시간이 더 필요 시에는 실험 관리자에게 문의하고 진행하셔도 됩니다.</p>
+        </div>
+        
+        <button class="start-button" onclick="window.location.href='{{ url_for('chat') }}'">
+            AI 동료와 대화 시작하기
+        </button>
+    </div>
+</body>
+</html>

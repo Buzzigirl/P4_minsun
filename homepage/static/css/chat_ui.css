@@ -1,0 +1,86 @@
+/* chat_ui.css */
+
+/* 1. 타이머 스타일 */
+.chat-header {
+    /* 타이머와 제목 정렬을 위해 flex로 변경 */
+    display: flex; 
+    justify-content: space-between;
+    align-items: center;
+}
+.timer {
+    padding: 5px 10px;
+    border-radius: 20px;
+    background-color: #4285f4; /* Google Blue */
+    color: white;
+    font-weight: bold;
+    font-size: 0.9em;
+    transition: background-color 0.3s;
+    /* 디자인: 타이머와 제목 간의 간격 조정 */
+    margin-left: auto; 
+    margin-right: 0;
+}
+
+/* 3. 모달 (팝업창) 스타일 */
+.modal {
+    display: none; 
+    position: fixed; 
+    z-index: 1000; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.4); 
+    justify-content: center;
+    align-items: center;
+}
+.modal-content {
+    background-color: #fefefe;
+    padding: 30px;
+    border-radius: 10px;
+    width: 80%;
+    max-width: 450px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    text-align: center;
+    position: relative;
+}
+#modal-message {
+    font-size: 1.1em;
+    line-height: 1.5;
+    margin-bottom: 25px;
+    color: #333;
+    font-weight: 500;
+}
+.modal-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+}
+.modal-buttons button {
+    padding: 10px 20px;
+    margin: 0;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s;
+    min-width: 150px;
+}
+.btn-yes {
+    background-color: #34a853; 
+    color: white;
+}
+.btn-yes:hover {
+    background-color: #278f48;
+}
+.btn-back {
+    background-color: #f0f4f9; 
+    color: #3c4043;
+    border: 1px solid #dadce0;
+}
+.btn-back:hover {
+    background-color: #e8e8e8;
+}
+.close-button {
+    display: none;
+}

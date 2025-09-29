@@ -2,7 +2,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>동료 AI 스캐폴딩 - 채팅</title>
 <style>
-    /* 1. 전체 레이아웃 (3단 구성 및 중앙 정렬) */
+    /* 1. 전체 레이아웃 (2단 구성 및 중앙 정렬) */
     body {
         font-family: 'Inter', 'Arial', sans-serif;
         background-color: #eef1f5;
@@ -15,25 +15,13 @@
     }
     .main-wrapper {
         display: flex;
-        width: 95%;
-        max-width: 1500px; /* 최대 폭 확장 */
+        width: 80%; 
+        max-width: 1200px; /* 최대 폭 조정 */
         height: 90vh;
         min-height: 600px;
         overflow: hidden;
     }
     
-    /* 왼쪽 패널: 학습 목표 및 배경 */
-    .left-panel {
-        width: 320px; 
-        padding: 30px;
-        background-color: #ffffff;
-        border-radius: 12px;
-        box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
-        margin-right: 20px; /* 채팅창과 띄우기 */
-        overflow-y: auto;
-        flex-shrink: 0;
-    }
-
     /* 오른쪽 패널: 결과물 제출 창 */
     .right-panel {
         width: 280px; 
@@ -57,7 +45,7 @@
     }
 
     /* 2. 패널 내부 스타일 */
-    .left-panel h2, .right-panel h2 {
+    .right-panel h2 {
         color: #1a73e8; 
         border-bottom: 3px solid #1a73e8;
         padding-bottom: 10px;
@@ -65,14 +53,7 @@
         font-weight: 800;
         font-size: 1.3em;
     }
-    .left-panel h3 {
-        color: #3c4043;
-        margin-top: 20px;
-        margin-bottom: 8px;
-        font-weight: 700;
-        font-size: 1.1em;
-    }
-    .left-panel p, .right-panel p {
+    .right-panel p {
         color: #5f6368;
         line-height: 1.6;
         margin-bottom: 15px;
@@ -81,7 +62,7 @@
     .right-panel button {
         width: 100%;
         padding: 12px;
-        background-color: #34a853; /* 구글 그린 */
+        background-color: #34a853; 
         color: white;
         border: none;
         border-radius: 8px;
@@ -112,6 +93,7 @@
         flex-direction: column;
         gap: 25px;
         background-color: #ffffff;
+        justify-content: flex-start;
     }
     
     /* 4. 메시지 스타일 */
@@ -126,39 +108,40 @@
         justify-content: flex-start;
     }
 
+    /* 🚩 아바타 크기 수정: 48px -> 96px */
     .avatar {
-        width: 80px; 
-        height: 80px; 
+        width: 96px; 
+        height: 96px; 
         border-radius: 50%;
         margin-right: 15px;
         flex-shrink: 0;
         object-fit: cover;
-        border: 3px solid #4285f4; 
+        border: 3px solid #4285f4; /* 테두리 두께도 3px로 조정 */
     }
     .user-message-row .avatar {
         display: none;
     }
     
     .message-content {
-        max-width: 65%;
+        max-width: 85%; 
         padding: 15px 20px;
         border-radius: 24px;
         line-height: 1.5;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-        word-break: break-word;
+        word-break: break-word; 
         font-size: 1.05em;
     }
     .ai-message-row .message-content {
         background-color: #f0f4f9; 
         color: #202124;
         border-top-left-radius: 4px;
-        margin-right: 15%;
+        margin-right: 5%; 
     }
     .user-message-row .message-content {
         background-color: #1a73e8; 
         color: white;
         border-top-right-radius: 4px;
-        margin-left: 15%;
+        margin-left: 5%; 
     }
 
     /* 5. 입력 폼 및 버튼 */
@@ -167,13 +150,14 @@
         border-top: 1px solid #e0e0e0;
         background-color: #ffffff;
         display: flex;
+        align-items: center; 
         gap: 15px;
         border-bottom-left-radius: 12px;
         border-bottom-right-radius: 12px;
     }
     .input-form input {
         flex-grow: 1;
-        padding: 15px 20px;
+        padding: 18px 20px; 
         border: 1px solid #dadce0;
         border-radius: 28px;
         font-size: 16px;
@@ -183,8 +167,8 @@
         color: white;
         border: none;
         border-radius: 50%;
-        width: 55px;
-        height: 55px;
+        width: 48px; 
+        height: 48px;
         font-size: 1.2em;
         cursor: pointer;
         display: flex;
@@ -193,9 +177,10 @@
     }
     .send-icon {
         stroke: white;
+        stroke-width: 2.5; 
         fill: none;
-        width: 24px;
-        height: 24px;
+        width: 20px; 
+        height: 20px;
     }
 
     /* 로딩 애니메이션 (생략) */

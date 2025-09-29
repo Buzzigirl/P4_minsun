@@ -62,27 +62,54 @@ def login():
             
     return render_template('login.html')
 
+# app.py 파일 내 수정할 부분
+
+# 1. /consent 라우트 수정: 동의 후 /summary로 이동하도록 변경
 @app.route('/consent', methods=['GET', 'POST'])
 def consent():
     """연구 참여 동의서 페이지"""
     if 'user' not in session:
         return redirect(url_for('login'))
         
-    log_filename = session.get('log_filename', 'temp.txt')
-    user_info = f"{session['user']['name']} ({session['user']['student_id']})"
+    log_path = os.path.join(LOGS_DIR, session.get('log_filename', 'temp.txt'))
     
     if request.method == 'POST':
         consent_status = request.form.get('consent_check')
         
         if consent_status == 'agree':
-            log_conversation_entry('System', f"연구 참여 동의: {user_info} 동의함", log_filename)
-            return redirect(url_for('chat'))
+            log_conversation_entry(log_path, 'System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 동의함")
+            
+            # 🚩 수정: 동의 후 바로 chat 대신 summary 페이지로 이동
+            return redirect(url_for('summary')) 
         else:
-            log_conversation_entry('System', f"연구 참여 동의: {user_info} 비동의함. 접속 종료.", log_filename)
+            log_conversation_entry(log_path, 'System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 비동의함. 접속 종료.")
             session.clear()
             return render_template('consent.html', error="비동의하셨습니다. 실험에 참여할 수 없습니다. 창을 닫아주세요.")
             
     return render_template('consent.html')
+
+
+# 2. 새로운 /summary 라우트 추가
+@app.route('/summary')
+def summary():
+    """학습 개요 및 목표 설명 페이지"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    # config_utils에서 로드한 학습 내용을 다시 로드
+    situation = load_prompt_file('situation.md')
+    rules = load_prompt_file('rules.md')
+    task = load_prompt_file('task.md')
+    
+    # 학습자 중심 모델 내용을 추가 (만약 이 내용이 별도 파일에 없다면, 여기에 직접 작성하거나 load_prompt_file로 로드해야 합니다.)
+    learner_model = "**<학습자 중심 모델>**\n\n학습 활동 설계의 이론적 기반입니다. 이 모델을 염두에 두고 활동을 설계해 주세요."
+    
+    return render_template('summary.html', 
+                            user_name=session['user']['name'],
+                            situation=situation,
+                            rules=rules,
+                            task=task,
+                            learner_model=learner_model) # 새로운 변수 전달
 
 @app.route('/chat')
 def chat():
