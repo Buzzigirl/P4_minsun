@@ -77,22 +77,17 @@ function initializeTimer() {
 
 // 2. 30분 타이머 업데이트 로직
 function updateTimer() {
-    // 🚩 제출 테스트를 위해 00:00으로 고정
-    TIMER_DISPLAY.textContent = "남은 시간: 00:00 (종료 권장)";
-    TIMER_DISPLAY.style.backgroundColor = '#e74c3c';
-    return;
-    
-    // (아래는 원래 30분 타이머 로직: TOTAL_TIME_SECONDS = 1800일 때 사용)
-    /*
     const elapsedTimeMs = Date.now() - startTime;
     const remainingTimeSeconds = TOTAL_TIME_SECONDS - Math.floor(elapsedTimeMs / 1000);
     
+    // 🚩 1. 시간 종료 체크 및 표시
     if (remainingTimeSeconds <= 0) {
         TIMER_DISPLAY.textContent = "남은 시간: 00:00 (종료 권장)";
-        TIMER_DISPLAY.style.backgroundColor = '#e74c3c';
+        TIMER_DISPLAY.style.backgroundColor = '#e74c3c'; // 빨간색
         return;
     }
     
+    // 🚩 2. 정상 카운트다운 계산 및 포맷
     const minutes = Math.floor(remainingTimeSeconds / 60);
     const seconds = remainingTimeSeconds % 60;
     
@@ -100,12 +95,12 @@ function updateTimer() {
     
     TIMER_DISPLAY.textContent = `남은 시간: ${formattedTime}`;
 
+    // 🚩 3. 5분 미만 경고 스타일
     if (remainingTimeSeconds < 5 * 60) {
-        TIMER_DISPLAY.style.backgroundColor = '#f39c12';
+         TIMER_DISPLAY.style.backgroundColor = '#f39c12'; // 노란색
     } else {
-        TIMER_DISPLAY.style.backgroundColor = '#4285f4';
+         TIMER_DISPLAY.style.backgroundColor = '#4285f4'; // 파란색
     }
-    */
 }
 
 // 3. 팝업 표시/숨기기
