@@ -8,8 +8,8 @@ const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 
 // --- 30분 학습 타이머 및 팝업 로직 ---
-const TOTAL_TIME_SECONDS = 0; 
-// const TOTAL_TIME_SECONDS = 30 * 60; // 30분 (테스트 후 원상복구할 값)
+// const TOTAL_TIME_SECONDS = 0; 
+const TOTAL_TIME_SECONDS = 30 * 60; // 30분 (테스트 후 원상복구할 값)
 const TIMER_DISPLAY = document.getElementById('timer');
 const MODAL = document.getElementById('end-session-modal');
 const MODAL_MESSAGE = document.getElementById('modal-message');
