@@ -6,7 +6,10 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import json
 import time
 import shutil
-import mimetypes
+import mimetypes # 🚨 mimetypes 라이브러리 임포트
+# 🚩 수정: HWpx 파일 형식을 mimetypes에 명시적으로 등록
+# 'application/x-hwp'는 한글 파일의 표준 MIME 타입이며, HWpx도 이 계열로 처리됩니다.
+mimetypes.add_type('application/x-hwp', '.hwpx') 
 
 # --- 분리된 설정 및 유틸리티 모듈 임포트 ---
 from config_utils import (
