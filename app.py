@@ -6,6 +6,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import json
 import time
 import shutil
+import mimetypes
 
 # --- 분리된 설정 및 유틸리티 모듈 임포트 ---
 from config_utils import (
