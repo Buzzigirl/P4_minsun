@@ -1,296 +1,340 @@
-# config_utils.py
+# app.py
 
 import os
-import json
-from openai import OpenAI
 import datetime
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_file 
+import json
+import time
+import shutil
 
-# --- 환경 변수 로드 및 초기 설정 ---
+# --- 분리된 설정 및 유틸리티 모듈 임포트 ---
+from config_utils import (
+    client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
+    load_prompt_file, log_conversation_entry, update_scaffolding_count,
+    LOGS_DIR, format_scaffolding_counts # Tool 관련 변수 제거 (필요 없음)
+)
+# ----------------------------------------
 
-# 🚨 수정: 로그 경로를 OS의 임시 디렉토리(/tmp)로 변경하여 Railway 쓰기 권한 확보
-# 이 경로는 서버 재시작 시 초기화됩니다.
-LOGS_DIR = '/tmp/logs' 
-# -----------------------------------------------------------------
 
-# BASE_DIR은 프로젝트 최상위 폴더를 가리킵니다.
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+app = Flask(__name__, 
+            template_folder='homepage/templates', 
+            static_folder='homepage/static')
 
-# DATA 및 PROMPT 경로는 BASE_DIR 기준으로 유지
-DATA_DIR = os.path.join(BASE_DIR, 'data')
-PROMPT_DIR = os.path.join(DATA_DIR, 'prompts')
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default-super-secret-key-for-session')
 
-# 필요한 폴더 생성 (서버 시작 시 한 번)
-# LOGS_DIR이 /tmp/logs로 변경되었으므로, 해당 폴더가 생성됩니다.
-os.makedirs(LOGS_DIR, exist_ok=True)
-os.makedirs(PROMPT_DIR, exist_ok=True)
 
-# --- OpenAI 클라이언트 초기화 ---
-client = None
-MODEL_NAME = "gpt-4o" 
+# --- Flask 라우팅 ---
 
-try:
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    if not openai_api_key:
-        print("🚨 ERROR: OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
-    else:
-        client = OpenAI(api_key=openai_api_key)
-        print("✅ INFO: OpenAI 클라이언트 초기화 성공.")
-except Exception as e:
-    print(f"🚨 ERROR: OpenAI 클라이언트 초기화 오류: {e}")
+@app.route('/', methods=['GET', 'POST'])
+def login():
+    """로그인 (학번/이름)"""
+    if request.method == 'POST':
+        student_id = request.form['student_id'].strip()
+        name = request.form['name'].strip()
+        expected_name = AUTHORIZED_USERS.get(student_id)
 
-# --- 프롬프트 및 사용자 데이터 로드 함수 ---
+        print("-------------------- 로그인 시도 --------------------")
+        print(f"DEBUG: 폼 입력 학번 (ID): '{student_id}'")
+        print(f"DEBUG: 폼 입력 성명 (Name): '{name}'")
+        print(f"DEBUG: JSON 기대 성명 (Expected): '{expected_name}'")
+        print("--------------------------------------------------")
+        
+        # 인증 확인
+        if expected_name is not None and expected_name == name:
+            session.clear()
+            session['user'] = {'name': name, 'student_id': student_id}
+            
+            # 사용자별 로그 폴더를 생성하고 세션에 저장
+            user_log_dir = os.path.join(LOGS_DIR, name)
+            print(f"DEBUG: 생성 시도 경로: {user_log_dir}")
 
-def load_prompt_file(filename):
-    """지정된 프롬프트 파일을 읽어옵니다."""
-    file_path = os.path.join(PROMPT_DIR, filename)
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    except FileNotFoundError:
-        print(f"🚨 오류: '{file_path}' 파일을 찾을 수 없습니다.")
-        return f"'{filename}' 파일을 불러오는 데 실패했습니다."
+            os.makedirs(user_log_dir, exist_ok=True)
+            session['user_log_dir'] = user_log_dir
+
+            now = datetime.datetime.now().strftime('%Y-%m-%d_%H%M%S')
+            
+            # 대화 로그 파일 경로 (logs/[이름]/[시간_학번].txt)
+            log_filename = os.path.join(name, f"{now}_{student_id}.txt")
+            session['log_filename'] = log_filename
+            
+            # 스캐폴딩 카운트 파일 이름 (logs/[이름]/[학번_이름].json)
+            count_filename = f"{student_id}_{name}.json"
+            session['count_filename'] = count_filename
+            
+            session['conversation'] = [] 
+            
+            return redirect(url_for('consent'))
+        else:
+            error = "등록되지 않은 사용자입니다. 학번과 이름을 정확히 확인해주세요."
+            return render_template('login.html', error=error)
+            
+    return render_template('login.html')
+
+@app.route('/consent', methods=['GET', 'POST'])
+def consent():
+    """연구 참여 동의서 페이지"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
+    log_filename = session.get('log_filename', 'temp.txt')
     
-# 🚩 RAG 데이터 경로
-EDUTECH_TOOLS_PATH = os.path.join(PROMPT_DIR, 'ai_edutech_tools.json')
-WEBSITES_PATH = os.path.join(PROMPT_DIR, 'edutech_websites.json')
+    if request.method == 'POST':
+        consent_status = request.form.get('consent_check')
+        
+        if consent_status == 'agree':
+            log_conversation_entry('System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 동의함", log_filename)
+            
+            return redirect(url_for('summary')) 
+        else:
+            log_conversation_entry('System', f"연구 참여 동의: {session['user']['name']} ({session['user']['student_id']}) 비동의함. 접속 종료.", log_filename)
+            session.clear()
+            return render_template('consent.html', error="비동의하셨습니다. 실험에 참여할 수 없습니다. 창을 닫아주세요.")
+            
+    return render_template('consent.html')
 
-# 🚩 서버 시작 시 데이터를 메모리에 로드
-try:
-    with open(EDUTECH_TOOLS_PATH, 'r', encoding='utf-8') as f:
-        EDUTECH_TOOLS_DATA = json.load(f)
-    print("INFO: Edutech tools data loaded successfully.")
-except Exception as e:
-    print(f"🚨 ERROR: Edutech tools data loading failed: {e}")
-    EDUTECH_TOOLS_DATA = []
 
-try:
-    with open(WEBSITES_PATH, 'r', encoding='utf-8') as f:
-        EDUTECH_WEBSITES_DATA = json.load(f)
-    print("INFO: Edutech websites data loaded successfully.")
-except Exception as e:
-    print(f"🚨 ERROR: Edutech websites data loading failed: {e}")
-    EDUTECH_WEBSITES_DATA = []
-
-def get_integrated_system_prompt():
-    """시스템 프롬프트, 상황, 규칙, 과제를 통합하여 반환합니다."""
-    # 각 내용을 파일에서 로드
-    system_base = load_prompt_file('system_prompt.md')
+@app.route('/summary')
+def summary():
+    """학습 개요 및 목표 설명 페이지"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+        
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
-    learner_model_data = load_prompt_file('learner_model.md') 
     
-    # 🚩 RAG 데이터를 MD 파일로 로드 (2번, 3번 질문 유형 자료)
-    edutech_tools = load_prompt_file('ai_edutech_tools.md')
-    edutech_sites = load_prompt_file('edutech_websites.md')
+    learner_model = "**<학습자 중심 모델>**\n\n학습 활동 설계의 이론적 기반입니다. 이 모델을 염두에 두고 활동을 설계해 주세요."
     
-    # 통합된 시스템 프롬프트 구성
-    return f"""
-{system_base}
----
-# 📚 현재 문제 상황 및 과제 정보 (Contextual Knowledge)
-너는 지금부터 아래에 제시된 문제 상황을 해결하기 위해 사용자와 대화해야 한다. 모든 스캐폴딩과 답변은 반드시 이 배경지식을 기반으로 이루어져야 한다.
+    return render_template('summary.html', 
+                            user_name=session['user']['name'],
+                            situation=situation,
+                            rules=rules,
+                            task=task,
+                            learner_model=learner_model)
 
-## 1. 현재 상황 (Situation)
-{situation}
-
-## 2. 관련 규칙 (Rules)
-{rules}
-
-## 3. 해결 과제 (Task)
-{task}
-
----
-# 🧠 동료 AI의 핵심 자료 (Knowledge Base for Rule Compliance)
-
-## 학습 모델 자료
-학습자 중심 학습 모델에 대한 질문을 받을 경우, 반드시 아래 자료에 기반하여 답변해야 한다.
-{learner_model_data}
-
-## 에듀테크 도구 및 사이트 자료
-학습자가 에듀테크 도구(질문 유형 2)나 참고 사이트(질문 유형 3)에 대해 물어볼 경우, 반드시 아래 자료를 **참조하여 답변**해야 한다.
-
-### 2. 에듀테크 도구 목록
-{edutech_tools}
-
-### 3. 참고 웹사이트 목록
-{edutech_sites}
----
-"""
-
-INTEGRATED_SYSTEM_PROMPT = get_integrated_system_prompt()
-
-# 사용자 데이터 로드
-try:
-    users_path = os.path.join(DATA_DIR, 'users.json')
-    with open(users_path, 'r', encoding='utf-8-sig') as f:
-        AUTHORIZED_USERS = json.load(f)
-    print("INFO: users.json 파일 로드 성공.")
-except FileNotFoundError:
-    print(f"🚨 오류: '{users_path}' 파일을 찾을 수 없습니다. users.json을 생성해주세요.")
-    AUTHORIZED_USERS = {}
-except json.JSONDecodeError as e:
-    print(f"🚨 오류: users.json 파일 형식이 잘못되었습니다. ({e})")
-    AUTHORIZED_USERS = {}
-
-
-# --- 로그 및 카운트 관리 함수 (파일 쓰기 오류 처리 강화) ---
-
-def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
-    """대화 항목을 TXT 로그 파일에 추가합니다. (파일 쓰기 오류 처리 강화)"""
-    # log_filename은 '이름/시간_학번.txt' 형태이므로 LOGS_DIR과 합쳐 전체 경로를 구성
-    log_file_path = os.path.join(LOGS_DIR, log_filename)
-    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+@app.route('/chat')
+def chat():
+    """메인 채팅 페이지"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
     
-    if speaker == 'User':
-        log_entry = f"[{now_str}] 사용자: {text}\n\n"
-    else: # AI
-        label = f" ({scaffolding_type})" if scaffolding_type else ""
-        log_entry = f"[{now_str}] AI{label}: {text}\n"
-        log_entry += f"----------------------------------------\n\n"
+    # 아바타 경로는 peer_avatar.webp로 가정
+    avatar_url = url_for('static', filename='images/peer_avatar.webp')
+    
+    situation = load_prompt_file('situation.md')
+    rules = load_prompt_file('rules.md')
+    task = load_prompt_file('task.md')
+    
+    user_name = session['user']['name']
+    log_filename = session.get('log_filename', 'temp.txt')
+    
+    # --- 첫 접속 시 AI의 초기 인사말 처리 로직 ---
+    conversation = session.get('conversation', [])
+    if not conversation: 
+        initial_greeting = f"안녕, {user_name}야! 나는 오늘 너와 함께 과제를 해결할 동료 학습자 AI야. 교내 쓰레기 처리 문제를 해결할 수 있는 학습 활동 설계를 지금부터 함께 시작해 보자! 어떻게 시작하면 좋을까?"
+        conversation.append({"role": "assistant", "content": initial_greeting})
+        session['conversation'] = conversation
         
-    log_dir = os.path.dirname(log_file_path)
+        log_conversation_entry('AI', initial_greeting, log_filename, scaffolding_type="일반")
+    # -----------------------------------------------
     
-    # 🚩 진단용 코드 추가: 파일 쓰기 시도 경로를 명확히 출력
-    print(f"DEBUG: Attempting to write log to: {log_file_path}")
+    chat_history = conversation
     
-    try:
-        # Railway 쓰기 권한 확보 및 폴더 생성
-        if log_dir and not os.path.exists(log_dir):
-            os.makedirs(log_dir, exist_ok=True) 
-            
-        with open(log_file_path, 'a', encoding='utf-8') as f:
-            f.write(log_entry)
-            
-    except Exception as e:
-        # 🚨 오류 발생 시, Railway 로그에서 오류 유형과 경로를 명확히 확인
-        print(f"🚨🚨 CRITICAL LOG WRITE FAIL: 로그 파일 저장 실패: {log_file_path} ({e})")
-
-
-def update_scaffolding_count(count_filename, user_log_dir, s_type): 
-    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (파일 쓰기 오류 처리 강화)"""
-    
-    # user_log_dir은 app.py에서 LOGS_DIR/이름 형태로 전달됨.
-    count_file_path = os.path.join(user_log_dir, count_filename) 
-    
-    valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
-    if s_type not in valid_types:
-        s_type = "분류실패"
-        
-    try:
-        # 🚩 Railway 쓰기 권한 확보 및 폴더 생성
-        if not os.path.exists(user_log_dir):
-            os.makedirs(user_log_dir, exist_ok=True)
-            
-        if os.path.exists(count_file_path):
-            with open(count_file_path, 'r', encoding='utf-8') as f:
-                counts = json.load(f)
-        else:
-            counts = {t: 0 for t in valid_types + ["분류실패"]}
-
-        counts[s_type] = counts.get(s_type, 0) + 1
-        
-        with open(count_file_path, 'w', encoding='utf-8') as f:
-            json.dump(counts, f, ensure_ascii=False, indent=4)
-            
-    except Exception as e:
-        print(f"🚨🚨 CRITICAL COUNT WRITE FAIL: 카운트 파일 저장 실패: {count_file_path} ({e})")
+    return render_template('chat.html', 
+                            user_name=user_name, 
+                            situation=situation, 
+                            rules=rules, 
+                            task=task,
+                            chat_history=chat_history,
+                            AVATAR_URL=avatar_url)
 
 # ----------------------------------------------------
-# 🚩 Tool 함수 정의 (RAG 구현을 위한 핵심 로직)
+# 🚩 /get_response 라우트 (RAG 안정화 - Tool-Calling 제거)
 # ----------------------------------------------------
+@app.route('/get_response', methods=['POST'])
+def get_response():
+    """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 제거)"""
+    if 'user' not in session:
+        return jsonify({'error': '세션 오류. 다시 로그인해주세요.'}), 401
+    if not client:
+        return jsonify({'error': 'AI 클라이언트 초기화 실패. API 키 설정 오류일 수 있습니다.'}), 503
 
-def search_edutech_tool(category: str) -> str:
-    """
-    주어진 카테고리에 해당하는 인공지능 기반 에듀테크 도구를 검색하여 도구명, 웹사이트, 설명을 JSON 문자열로 반환합니다.
-    사용 가능한 카테고리는 '소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구'입니다.
-    """
-    if not EDUTECH_TOOLS_DATA:
-        return json.dumps({"error": "도구 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
+    user_message = request.json['message']
+    conversation = session.get('conversation', [])
+    log_filename = session.get('log_filename', 'temp.txt')
+    count_filename = session.get('count_filename', 'temp.json')
+    user_log_dir = session.get('user_log_dir', LOGS_DIR) 
 
-    category_lower = category.lower().strip() 
-    results = [
-        item for item in EDUTECH_TOOLS_DATA
-        if item.get('카테고리', '').lower().strip() == category_lower
-    ]
-    
-    if not results:
-        return json.dumps({"message": f"'{category}' 카테고리에 해당하는 도구를 찾을 수 없습니다."}, ensure_ascii=False)
+    # 1. 사용자 메시지를 대화 이력에 추가 
+    conversation.append({"role": "user", "content": user_message})
 
-    return json.dumps(results[:3], ensure_ascii=False)
-
-
-def get_edutech_websites() -> str:
-    """
-    에듀테크 관련 정보 사이트 목록을 검색하여 사이트명, 주소, 특징을 JSON 문자열로 반환합니다.
-    """
-    if not EDUTECH_WEBSITES_DATA:
-        return json.dumps({"error": "웹사이트 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
-        
-    return json.dumps(EDUTECH_WEBSITES_DATA, ensure_ascii=False)
-
-# 🚨 AI가 사용할 Tool 목록 정의
-AI_TOOLS = {
-    "search_edutech_tool": search_edutech_tool,
-    "get_edutech_websites": get_edutech_websites
-}
-
-# config_utils.py 파일 하단에 다음 함수를 추가해 주세요.
-# (기존 update_scaffolding_count 함수 뒤에 추가하는 것이 좋습니다.)
-
-def format_scaffolding_counts(count_filename, user_log_dir):
-    """스캐폴딩 카운트 JSON 파일을 읽어 텍스트 형식으로 포맷합니다."""
-    count_file_path = os.path.join(user_log_dir, count_filename) 
+    # 2. API 호출을 위한 메시지 리스트 구성
+    messages_for_api = [
+        {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT}
+    ] + conversation
     
     try:
-        if not os.path.exists(count_file_path):
-            return "\n\n--- 스캐폴딩 카운트 정보 --- \n카운트 파일을 찾을 수 없습니다."
+        # 🚨 수정: Tool-Calling 구조 제거 및 단일 API 호출로 변경
+        response = client.chat.completions.create(
+            model=MODEL_NAME, 
+            messages=messages_for_api, 
+            # tools=TOOLS_SCHEMA, <-- 제거됨
+            response_format={"type": "json_object"}
+        )
+        
+        ai_response_json_str = response.choices[0].message.content
+        
+        # 3. AI 응답 파싱 및 추출
+        try:
+            ai_response_data = json.loads(ai_response_json_str)
+            
+            scaffolding_type = ai_response_data.get("scaffolding_type", "분류실패")
+            valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
+            if not scaffolding_type in valid_types:
+                scaffolding_type = "분류실패"
+                
+            response_text = ai_response_data.get("response_text", "AI 응답 생성에 실패했습니다.")
+            
+        except json.JSONDecodeError:
+            scaffolding_type = "JSON 파싱 실패"
+            response_text = "AI 응답 형식에 오류가 발생했어. 잠시 후 다시 시도해 봐."
+            
+        # 4. AI 응답을 대화 이력에 추가하고 세션에 저장
+        conversation.append({"role": "assistant", "content": response_text})
+        session['conversation'] = conversation
+        
+        # 5. 로그 기록 및 카운트 업데이트
+        log_conversation_entry('User', user_message, log_filename)
+        log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
+        update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
+        
+        # 6. 최종 응답 반환
+        return jsonify({'response': response_text})
 
-        with open(count_file_path, 'r', encoding='utf-8') as f:
-            counts = json.load(f)
-            
-        formatted_text = "\n\n==================================================\n"
-        formatted_text += "--- 📊 AI 스캐폴딩 유형별 최종 카운트 결과 ---\n"
-        formatted_text += "==================================================\n"
-        
-        # 카운트가 많은 순서대로 정렬하여 출력
-        sorted_counts = sorted(counts.items(), key=lambda item: item[1], reverse=True)
-        
-        for s_type, count in sorted_counts:
-            formatted_text += f"- {s_type}: {count}회\n"
-            
-        formatted_text += "==================================================\n\n"
-        return formatted_text
-        
     except Exception as e:
-        # 오류 발생 시에도 최소한의 정보를 남김
-        return f"\n\n--- 스캐폴딩 카운트 정보 --- \n카운트 파일 로드 또는 포맷 중 오류 발생: {e}"
+        # 오류 발생 시 사용자 메시지를 대화 이력에서 제거
+        if conversation and conversation[-1].get('role') == 'user':
+            conversation.pop()
+            session['conversation'] = conversation 
+            
+        print(f"🚨 ERROR: OpenAI API 호출 오류: {e}")
+        log_conversation_entry('System_Error', f"API 호출 오류 발생: {e}", log_filename)
+        return jsonify({'error': 'AI 응답을 가져오는 데 실패했습니다. 다시 시도해 주세요.'}), 500
 
-# 🚨 Tool Schema 정의 (OpenAI SDK용)
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": search_edutech_tool.__name__,
-            "description": search_edutech_tool.__doc__,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "사용자가 원하는 에듀테크 도구의 카테고리 ('소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구' 중 하나)"
-                    }
-                },
-                "required": ["category"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": get_edutech_websites.__name__,
-            "description": get_edutech_websites.__doc__,
-            "parameters": {"type": "object", "properties": {}} # 인자 없음
-        }
-    }
-]
+
+@app.route('/get_prompt_response', methods=['POST'])
+def get_prompt_response():
+    """JavaScript 타이머에 의해 호출되어 AI의 재촉 메시지를 받습니다."""
+    if 'user' not in session:
+        return jsonify({'error': '세션 오류 또는 AI 클라이언트 초기화 실패'}), 401
+
+    conversation = session.get('conversation', [])
+    log_filename = session.get('log_filename', 'temp.txt')
+    count_filename = session.get('count_filename', 'temp.json')
+    user_log_dir = session.get('user_log_dir', LOGS_DIR) 
+
+    prompt_message = "5분 동안 사용자로부터 응답이 없습니다. 프롬프트 규칙 1번(침묵 감지 및 재촉)에 따라, '지금 어디까지 생각해봤거나 어디까지 진행되었어? 하면서 어떤 부분이 어렵니?'와 같은 내용으로 사용자의 대화를 재촉하는 메시지를 생성하세요."
+
+    messages_for_api = [
+        {"role": "system", "content": INTEGRATED_SYSTEM_PROMPT},
+        {"role": "user", "content": prompt_message} 
+    ] + conversation 
+
+    try:
+        # 🚨 Tool 호출 인자 제거
+        chat_completion = client.chat.completions.create(
+            model=MODEL_NAME, 
+            messages=messages_for_api, 
+            response_format={"type": "json_object"}
+        )
+        ai_response_json_str = chat_completion.choices[0].message.content
+        
+        ai_response_data = json.loads(ai_response_json_str)
+        response_text = ai_response_data.get("response_text", "다시 시도해 주세요.")
+        scaffolding_type = ai_response_data.get("scaffolding_type", "동기적 스캐폴딩") 
+
+        conversation.append({"role": "assistant", "content": response_text})
+        session['conversation'] = conversation
+        log_conversation_entry('AI', response_text, log_filename, scaffolding_type)
+        
+        update_scaffolding_count(count_filename, user_log_dir, scaffolding_type)
+        
+        return jsonify({'response': response_text})
+
+    except Exception as e:
+        print(f"🚨 ERROR: 침묵 감지 API 호출 오류: {e}")
+        log_conversation_entry('System_Error', f"침묵 감지 오류 발생: {e}", log_filename)
+        return jsonify({'error': 'AI 재촉 메시지를 가져오는 데 실패했습니다.'}), 500
+
+# ----------------------------------------------------
+# 🚩 /submit_and_download_log 라우트 (로그 다운로드 기능)
+# ----------------------------------------------------
+@app.route('/submit_and_download_log')
+def submit_and_download_log():
+    """최종 로그 파일과 카운트 횟수를 통합하여 다운로드 제공합니다. (세션 유지)"""
+    if 'user' not in session or 'user_log_dir' not in session:
+        return redirect(url_for('login'))
+        
+    user_info = session['user']
+    user_log_dir = session['user_log_dir']
+    
+    # 세션에서 파일명 로드
+    log_filename_relative = session.get('log_filename') 
+    count_filename = session.get('count_filename')
+    
+    # 🚨 핵심: 파일 경로 구성 및 존재 확인
+    main_log_path = os.path.join(LOGS_DIR, log_filename_relative)
+    
+    print(f"DEBUG: 로그 다운로드 시도 (LOG): {main_log_path}")
+    
+    # 1. 메인 대화 로그 읽기
+    try:
+        from config_utils import format_scaffolding_counts # 함수 임포트
+        
+        if not os.path.exists(main_log_path):
+            print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}")
+            return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 경로를 확인하세요: {main_log_path}", 404
+        
+        with open(main_log_path, 'r', encoding='utf-8') as f:
+            conversation_log = f.read()
+            
+    except Exception as e:
+        print(f"🚨 ERROR: 메인 로그 파일 읽기 오류: {e}")
+        return "로그 파일을 읽는 중 서버 오류가 발생했습니다.", 500
+
+    # 2. 스캐폴딩 카운트 포맷하여 가져오기
+    count_summary = format_scaffolding_counts(count_filename, user_log_dir)
+    
+    # 3. 최종 통합 내용 생성 (다운로드를 위한 임시 파일)
+    final_download_filename = f"{user_info['name']}_{user_info['student_id']}_AI_Log.txt"
+    final_download_path = os.path.join('/tmp', final_download_filename)
+    final_content = conversation_log + count_summary
+
+    try:
+        with open(final_download_path, 'w', encoding='utf-8') as f:
+            f.write(final_content)
+            
+        # 4. 파일 전송 (다운로드 시작)
+        response = send_file(
+            final_download_path, 
+            mimetype='text/plain',
+            as_attachment=True,
+            download_name=final_download_filename
+        )
+        
+        # 5. 응답 반환
+        return response
+
+    except Exception as e:
+        print(f"🚨 ERROR: 최종 로그 파일 생성/다운로드 중 오류 발생: {e}")
+        return "최종 로그 파일 다운로드 중 서버 오류가 발생했습니다.", 500
+
+
+if __name__ == "__main__":
+    print("======================================================")
+    print("✅ 서버 준비 완료.")
+    print("------------------------------------------------------")
+    print("🚀 서버 시작 (Ctrl+C로 종료)")
+    
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=False)
