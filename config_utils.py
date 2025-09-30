@@ -26,7 +26,7 @@ os.makedirs(PROMPT_DIR, exist_ok=True)
 
 # --- OpenAI 클라이언트 초기화 ---
 client = None
-MODEL_NAME = "gpt-4o-mini" 
+MODEL_NAME = "gpt-4o" 
 
 try:
     openai_api_key = os.getenv('OPENAI_API_KEY')
