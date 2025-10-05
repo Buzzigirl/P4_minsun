@@ -160,7 +160,7 @@ except json.JSONDecodeError as e:
 
 # config_utils.py 내 log_conversation_entry 함수 확인
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
-    """대화 항목을 TXT 로그 파일에 추가합니다. (쓰기 잠금 적용)"""
+    """대화 항목을 TXT 로그 파일에 추가합니다. (portalocker 제거)"""
     log_file_path = os.path.join(LOGS_DIR, log_filename)
     now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
@@ -176,13 +176,12 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     print(f"DEBUG: Attempting to write log to: {log_file_path}")
     
     try:
-        # 1. 폴더 생성 (폴더가 없으면 lock이 실패할 수 있음)
+        # 🚩 수정: portalocker 없이 표준 os.makedirs와 with open('a') 사용
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True) 
             
-        # 🚨 수정: portalocker.Lock을 사용하여 파일 쓰기 시 잠금을 적용합니다.
-        # 'a': append 모드로 열어, 기존 내용을 덮어쓰지 않고 추가만 합니다.
-        with portalocker.Lock(log_file_path, 'a', timeout=5, encoding='utf-8') as f:
+        # 'a' (append) 모드로 열어 기존 내용을 덮어쓰지 않고 추가만 합니다.
+        with open(log_file_path, 'a', encoding='utf-8') as f:
             f.write(log_entry)
             
     except Exception as e:
@@ -190,7 +189,7 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
 
 
 def update_scaffolding_count(count_filename, user_log_dir, s_type): 
-    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (쓰기 잠금 적용)"""
+    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (portalocker 제거)"""
     
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
@@ -202,29 +201,18 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
         if not os.path.exists(user_log_dir):
             os.makedirs(user_log_dir, exist_ok=True)
             
-        # 🚩 수정: 카운트 파일 쓰기 시 잠금 적용 (r+ 모드로 수정 및 덮어쓰기)
         if os.path.exists(count_file_path):
-            with portalocker.Lock(count_file_path, 'r+', timeout=5, encoding='utf-8') as f: 
-                f.seek(0)
-                try:
-                    # 파일 내용을 읽기 전에 파일이 비어있지 않은지 확인
-                    content = f.read()
-                    f.seek(0)
-                    counts = json.loads(content) if content else {t: 0 for t in valid_types + ["분류실패"]}
-                except json.JSONDecodeError:
-                    counts = {t: 0 for t in valid_types + ["분류실패"]}
-                    
-                counts[s_type] = counts.get(s_type, 0) + 1
-                
-                f.seek(0)
-                f.truncate() 
-                json.dump(counts, f, ensure_ascii=False, indent=4)
+            # 🚩 수정: portalocker 제거 후 표준 파일 읽기/쓰기 로직 복구
+            with open(count_file_path, 'r', encoding='utf-8') as f:
+                counts = json.load(f)
         else:
             counts = {t: 0 for t in valid_types + ["분류실패"]}
-            counts[s_type] = counts.get(s_type, 0) + 1
-            
-            with portalocker.Lock(count_file_path, 'w', timeout=5, encoding='utf-8') as f:
-                json.dump(counts, f, ensure_ascii=False, indent=4)
+
+        counts[s_type] = counts.get(s_type, 0) + 1
+        
+        # 🚩 수정: 덮어쓰기 모드 'w' 사용
+        with open(count_file_path, 'w', encoding='utf-8') as f:
+            json.dump(counts, f, ensure_ascii=False, indent=4)
             
     except Exception as e:
         print(f"🚨🚨 CRITICAL COUNT WRITE FAIL: 카운트 파일 저장 실패: {count_file_path} ({e})")
