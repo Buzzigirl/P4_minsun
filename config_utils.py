@@ -6,55 +6,79 @@ from openai import OpenAI
 import datetime
 
 # --- 환경 변수 로드 및 초기 설정 ---
-
-# 🚨 수정: 로그 경로를 OS의 임시 디렉토리(/tmp)로 변경하여 Railway 쓰기 권한 확보
-# 이 경로는 서버 재시작 시 초기화됩니다.
 LOGS_DIR = '/tmp/logs' 
-# -----------------------------------------------------------------
-
-# BASE_DIR은 프로젝트 최상위 폴더를 가리킵니다.
 BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
-
-# DATA 및 PROMPT 경로는 BASE_DIR 기준으로 유지
 DATA_DIR = os.path.join(BASE_DIR, 'data')
 PROMPT_DIR = os.path.join(DATA_DIR, 'prompts')
 
-# 필요한 폴더 생성 (서버 시작 시 한 번)
-# LOGS_DIR이 /tmp/logs로 변경되었으므로, 해당 폴더가 생성됩니다.
 os.makedirs(LOGS_DIR, exist_ok=True)
 os.makedirs(PROMPT_DIR, exist_ok=True)
 
 # --- OpenAI 클라이언트 초기화 ---
-client = None
+STUDENT_KEY_NAMES = [f'OPENAI_KEY_{i}' for i in range(1, 28)] 
+API_CLIENTS = {}
+LAST_RESORT_CLIENT = None
 MODEL_NAME = "gpt-4o" 
 
 try:
-    openai_api_key = os.getenv('OPENAI_API_KEY')
-    if not openai_api_key:
-        print("🚨 ERROR: OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
-    else:
-        client = OpenAI(api_key=openai_api_key)
-        print("✅ INFO: OpenAI 클라이언트 초기화 성공.")
+    for i, key_name in enumerate(STUDENT_KEY_NAMES):
+        api_key = os.getenv(key_name)
+        if api_key:
+            API_CLIENTS[i + 1] = OpenAI(api_key=api_key) 
+        else:
+            print(f"🚨 WARNING: {key_name} 환경 변수가 누락되었습니다. {i+1}번 학생에게 키가 할당되지 않습니다.")
+
+    last_key_name = STUDENT_KEY_NAMES[-1] 
+    last_api_key = os.getenv(last_key_name)
+    
+    if last_api_key:
+        LAST_RESORT_CLIENT = API_CLIENTS.get(27, OpenAI(api_key=last_api_key)) 
+        
+    print(f"✅ INFO: 총 {len(API_CLIENTS)}개의 학생 API 클라이언트와 관리자용 클라이언트가 준비되었습니다.")
+
 except Exception as e:
     print(f"🚨 ERROR: OpenAI 클라이언트 초기화 오류: {e}")
+
+# 🚨 학번에 따라 클라이언트를 반환하는 함수 (app.py에서 사용)
+def get_client_by_user(student_id):
+    """학번의 순서(인덱스)를 기반으로 고유한 API 클라이언트를 반환합니다."""
+    
+    try:
+        user_list = list(AUTHORIZED_USERS.keys())
+        user_index = user_list.index(student_id)
+    except ValueError:
+        print(f"DEBUG: Unknown Student ID {student_id}. Assigning Last Resort Client.")
+        return LAST_RESORT_CLIENT
+        
+    if user_index >= 26: 
+        client_key_number = 27
+    else:
+        client_key_number = user_index + 1
+        
+    client_to_use = API_CLIENTS.get(client_key_number)
+
+    return client_to_use if client_to_use else LAST_RESORT_CLIENT
+# ----------------------------------------------------
+
 
 # --- 프롬프트 및 사용자 데이터 로드 함수 ---
 
 def load_prompt_file(filename):
-    """지정된 프롬프트 파일을 읽어옵니다."""
+    """지정된 프롬프트 파일을 읽어옵니다. 파일이 없을 경우 빈 문자열을 반환합니다."""
     file_path = os.path.join(PROMPT_DIR, filename)
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
     except FileNotFoundError:
+        # 🚩 수정: 파일 로드 실패 시 오류 문자열 대신 빈 문자열 반환 (시스템 프롬프트 안정화)
         print(f"🚨 오류: '{file_path}' 파일을 찾을 수 없습니다.")
-        return f"'{filename}' 파일을 불러오는 데 실패했습니다."
+        return ""
     
-# 🚩 RAG 데이터 경로
+# 🚩 RAG 데이터 경로 (JSON 파일 로드가 성공했다는 전제하에 유지)
 EDUTECH_TOOLS_PATH = os.path.join(PROMPT_DIR, 'ai_edutech_tools.json')
 WEBSITES_PATH = os.path.join(PROMPT_DIR, 'edutech_websites.json')
 
-# 🚩 서버 시작 시 데이터를 메모리에 로드
+# 🚩 서버 시작 시 데이터를 메모리에 로드 (JSON 로드 실패 시에도 빈 리스트로 초기화)
 try:
     with open(EDUTECH_TOOLS_PATH, 'r', encoding='utf-8') as f:
         EDUTECH_TOOLS_DATA = json.load(f)
@@ -73,14 +97,13 @@ except Exception as e:
 
 def get_integrated_system_prompt():
     """시스템 프롬프트, 상황, 규칙, 과제를 통합하여 반환합니다."""
-    # 각 내용을 파일에서 로드
     system_base = load_prompt_file('system_prompt.md')
     situation = load_prompt_file('situation.md')
     rules = load_prompt_file('rules.md')
     task = load_prompt_file('task.md')
     learner_model_data = load_prompt_file('learner_model.md') 
     
-    # 🚩 RAG 데이터를 MD 파일로 로드 (2번, 3번 질문 유형 자료)
+    # 🚩 RAG 데이터를 MD 파일로 로드 (시스템 프롬프트에 직접 포함하여 안정화)
     edutech_tools = load_prompt_file('ai_edutech_tools.md')
     edutech_sites = load_prompt_file('edutech_websites.md')
     
@@ -120,7 +143,7 @@ def get_integrated_system_prompt():
 
 INTEGRATED_SYSTEM_PROMPT = get_integrated_system_prompt()
 
-# 사용자 데이터 로드
+# 사용자 데이터 로드 (유지)
 try:
     users_path = os.path.join(DATA_DIR, 'users.json')
     with open(users_path, 'r', encoding='utf-8-sig') as f:
@@ -138,7 +161,6 @@ except json.JSONDecodeError as e:
 
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     """대화 항목을 TXT 로그 파일에 추가합니다. (파일 쓰기 오류 처리 강화)"""
-    # log_filename은 '이름/시간_학번.txt' 형태이므로 LOGS_DIR과 합쳐 전체 경로를 구성
     log_file_path = os.path.join(LOGS_DIR, log_filename)
     now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
@@ -151,11 +173,9 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
         
     log_dir = os.path.dirname(log_file_path)
     
-    # 🚩 진단용 코드 추가: 파일 쓰기 시도 경로를 명확히 출력
     print(f"DEBUG: Attempting to write log to: {log_file_path}")
     
     try:
-        # Railway 쓰기 권한 확보 및 폴더 생성
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True) 
             
@@ -163,14 +183,12 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
             f.write(log_entry)
             
     except Exception as e:
-        # 🚨 오류 발생 시, Railway 로그에서 오류 유형과 경로를 명확히 확인
         print(f"🚨🚨 CRITICAL LOG WRITE FAIL: 로그 파일 저장 실패: {log_file_path} ({e})")
 
 
 def update_scaffolding_count(count_filename, user_log_dir, s_type): 
     """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (파일 쓰기 오류 처리 강화)"""
     
-    # user_log_dir은 app.py에서 LOGS_DIR/이름 형태로 전달됨.
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
     valid_types = ["개념적 스캐폴딩", "전략적 스캐폴딩", "메타인지적 스캐폴딩", "동기적 스캐폴딩", "일반"]
@@ -178,7 +196,6 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
         s_type = "분류실패"
         
     try:
-        # 🚩 Railway 쓰기 권한 확보 및 폴더 생성
         if not os.path.exists(user_log_dir):
             os.makedirs(user_log_dir, exist_ok=True)
             
@@ -197,46 +214,9 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
         print(f"🚨🚨 CRITICAL COUNT WRITE FAIL: 카운트 파일 저장 실패: {count_file_path} ({e})")
 
 # ----------------------------------------------------
-# 🚩 Tool 함수 정의 (RAG 구현을 위한 핵심 로직)
+# 🚩 Tool 함수 정의 (Tool-Calling 제거됨)
 # ----------------------------------------------------
-
-def search_edutech_tool(category: str) -> str:
-    """
-    주어진 카테고리에 해당하는 인공지능 기반 에듀테크 도구를 검색하여 도구명, 웹사이트, 설명을 JSON 문자열로 반환합니다.
-    사용 가능한 카테고리는 '소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구'입니다.
-    """
-    if not EDUTECH_TOOLS_DATA:
-        return json.dumps({"error": "도구 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
-
-    category_lower = category.lower().strip() 
-    results = [
-        item for item in EDUTECH_TOOLS_DATA
-        if item.get('카테고리', '').lower().strip() == category_lower
-    ]
-    
-    if not results:
-        return json.dumps({"message": f"'{category}' 카테고리에 해당하는 도구를 찾을 수 없습니다."}, ensure_ascii=False)
-
-    return json.dumps(results[:3], ensure_ascii=False)
-
-
-def get_edutech_websites() -> str:
-    """
-    에듀테크 관련 정보 사이트 목록을 검색하여 사이트명, 주소, 특징을 JSON 문자열로 반환합니다.
-    """
-    if not EDUTECH_WEBSITES_DATA:
-        return json.dumps({"error": "웹사이트 데이터베이스가 준비되지 않았습니다."}, ensure_ascii=False)
-        
-    return json.dumps(EDUTECH_WEBSITES_DATA, ensure_ascii=False)
-
-# 🚨 AI가 사용할 Tool 목록 정의
-AI_TOOLS = {
-    "search_edutech_tool": search_edutech_tool,
-    "get_edutech_websites": get_edutech_websites
-}
-
-# config_utils.py 파일 하단에 다음 함수를 추가해 주세요.
-# (기존 update_scaffolding_count 함수 뒤에 추가하는 것이 좋습니다.)
+# (이전 Tool 함수 정의는 삭제되었습니다.)
 
 def format_scaffolding_counts(count_filename, user_log_dir):
     """스캐폴딩 카운트 JSON 파일을 읽어 텍스트 형식으로 포맷합니다."""
@@ -253,7 +233,6 @@ def format_scaffolding_counts(count_filename, user_log_dir):
         formatted_text += "--- 📊 AI 스캐폴딩 유형별 최종 카운트 결과 ---\n"
         formatted_text += "==================================================\n"
         
-        # 카운트가 많은 순서대로 정렬하여 출력
         sorted_counts = sorted(counts.items(), key=lambda item: item[1], reverse=True)
         
         for s_type, count in sorted_counts:
@@ -263,34 +242,4 @@ def format_scaffolding_counts(count_filename, user_log_dir):
         return formatted_text
         
     except Exception as e:
-        # 오류 발생 시에도 최소한의 정보를 남김
         return f"\n\n--- 스캐폴딩 카운트 정보 --- \n카운트 파일 로드 또는 포맷 중 오류 발생: {e}"
-
-# 🚨 Tool Schema 정의 (OpenAI SDK용)
-TOOLS_SCHEMA = [
-    {
-        "type": "function",
-        "function": {
-            "name": search_edutech_tool.__name__,
-            "description": search_edutech_tool.__doc__,
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "사용자가 원하는 에듀테크 도구의 카테고리 ('소셜 러닝', '학습 콘텐츠', '수업 계획', '유용한 도구' 중 하나)"
-                    }
-                },
-                "required": ["category"]
-            }
-        }
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": get_edutech_websites.__name__,
-            "description": get_edutech_websites.__doc__,
-            "parameters": {"type": "object", "properties": {}} # 인자 없음
-        }
-    }
-]

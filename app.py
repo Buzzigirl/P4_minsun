@@ -7,15 +7,16 @@ import json
 import time
 import shutil
 import mimetypes # 🚨 mimetypes 라이브러리 임포트
-# 🚩 수정: HWpx 파일 형식을 mimetypes에 명시적으로 등록
-# 'application/x-hwp'는 한글 파일의 표준 MIME 타입이며, HWpx도 이 계열로 처리됩니다.
+
+# 🚩 HWpx 파일 형식을 mimetypes에 명시적으로 등록
 mimetypes.add_type('application/x-hwp', '.hwpx') 
 
 # --- 분리된 설정 및 유틸리티 모듈 임포트 ---
 from config_utils import (
-    client, MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
+    # 🚨 수정: Tool 관련 임포트 제거
+    MODEL_NAME, INTEGRATED_SYSTEM_PROMPT, AUTHORIZED_USERS,
     load_prompt_file, log_conversation_entry, update_scaffolding_count,
-    LOGS_DIR, AI_TOOLS, TOOLS_SCHEMA, format_scaffolding_counts 
+    LOGS_DIR, format_scaffolding_counts, get_client_by_user # 🚩 get_client_by_user 임포트
 )
 # ----------------------------------------
 
@@ -28,7 +29,7 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'default-super-secret-key-for-ses
 
 
 # --- Flask 라우팅 ---
-
+# ... (login, consent, summary, chat 라우트 유지) ...
 @app.route('/', methods=['GET', 'POST'])
 def login():
     """로그인 (학번/이름)"""
@@ -122,6 +123,7 @@ def chat():
     if 'user' not in session:
         return redirect(url_for('login'))
     
+    # 아바타 경로는 peer_avatar.webp로 가정
     avatar_url = url_for('static', filename='images/peer_avatar.webp')
     
     situation = load_prompt_file('situation.md')
@@ -152,14 +154,19 @@ def chat():
                             AVATAR_URL=avatar_url)
 
 # ----------------------------------------------------
-# 🚩 /get_response 라우트 (RAG 안정화 및 로그 통합 로직)
+# 🚩 /get_response 라우트 (RAG 안정화)
 # ----------------------------------------------------
 @app.route('/get_response', methods=['POST'])
 def get_response():
-    """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 제거, 안정성 확보)"""
+    """AI 답변 요청 및 로그 저장 (Tool-Calling 로직 제거)"""
     if 'user' not in session:
         return jsonify({'error': '세션 오류. 다시 로그인해주세요.'}), 401
-    if not client:
+    
+    student_id = session['user']['student_id']
+    # 🚨 수정: student_id를 기반으로 클라이언트 객체를 동적으로 가져옴
+    current_client = get_client_by_user(student_id)
+
+    if not current_client:
         return jsonify({'error': 'AI 클라이언트 초기화 실패. API 키 설정 오류일 수 있습니다.'}), 503
 
     user_message = request.json['message']
@@ -178,10 +185,9 @@ def get_response():
     
     try:
         # 🚨 수정: Tool-Calling 구조 제거 및 단일 API 호출로 변경
-        response = client.chat.completions.create(
+        response = current_client.chat.completions.create(
             model=MODEL_NAME, 
             messages=messages_for_api, 
-            # tools=TOOLS_SCHEMA, <-- 제거됨
             response_format={"type": "json_object"}
         )
         
@@ -231,6 +237,12 @@ def get_prompt_response():
     if 'user' not in session:
         return jsonify({'error': '세션 오류 또는 AI 클라이언트 초기화 실패'}), 401
 
+    student_id = session['user']['student_id']
+    current_client = get_client_by_user(student_id)
+    if not current_client:
+        return jsonify({'error': 'AI 클라이언트 초기화 실패. API 키 설정 오류일 수 있습니다.'}), 401
+
+
     conversation = session.get('conversation', [])
     log_filename = session.get('log_filename', 'temp.txt')
     count_filename = session.get('count_filename', 'temp.json')
@@ -244,7 +256,7 @@ def get_prompt_response():
     ] + conversation 
 
     try:
-        chat_completion = client.chat.completions.create(
+        chat_completion = current_client.chat.completions.create(
             model=MODEL_NAME, 
             messages=messages_for_api, 
             response_format={"type": "json_object"}
@@ -284,7 +296,7 @@ def submit_and_download_log():
     log_filename_relative = session.get('log_filename') 
     count_filename = session.get('count_filename')
     
-    # 🚨 핵심: 파일 경로 구성 및 존재 확인 (FileNotFoundError 방지)
+    # 🚨 핵심: 파일 경로 구성 및 존재 확인
     main_log_path = os.path.join(LOGS_DIR, log_filename_relative)
     
     print(f"DEBUG: 로그 다운로드 시도 (LOG): {main_log_path}")
