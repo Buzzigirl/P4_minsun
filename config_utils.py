@@ -4,7 +4,6 @@ import os
 import json
 from openai import OpenAI
 import datetime
-import portalocker
 
 # --- 환경 변수 로드 및 초기 설정 ---
 LOGS_DIR = '/tmp/logs' 
