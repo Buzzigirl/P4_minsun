@@ -3,3 +3,4 @@ waitress
 openai
 python-dotenv
 gunicorn
+portalocker
