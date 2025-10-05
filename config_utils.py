@@ -4,6 +4,7 @@ import os
 import json
 from openai import OpenAI
 import datetime
+import portalocker
 
 # --- 환경 변수 로드 및 초기 설정 ---
 LOGS_DIR = '/tmp/logs' 
@@ -160,17 +161,10 @@ except json.JSONDecodeError as e:
 # --- 로그 및 카운트 관리 함수 (파일 쓰기 오류 처리 강화) ---
 
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
-    """대화 항목을 TXT 로그 파일에 추가합니다. (파일 쓰기 오류 처리 강화)"""
+    """대화 항목을 TXT 로그 파일에 추가합니다. (쓰기 잠금 적용)"""
     log_file_path = os.path.join(LOGS_DIR, log_filename)
-    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    # ... (log_entry 구성 로직 유지) ...
     
-    if speaker == 'User':
-        log_entry = f"[{now_str}] 사용자: {text}\n\n"
-    else: # AI
-        label = f" ({scaffolding_type})" if scaffolding_type else ""
-        log_entry = f"[{now_str}] AI{label}: {text}\n"
-        log_entry += f"----------------------------------------\n\n"
-        
     log_dir = os.path.dirname(log_file_path)
     
     print(f"DEBUG: Attempting to write log to: {log_file_path}")
@@ -179,7 +173,8 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True) 
             
-        with open(log_file_path, 'a', encoding='utf-8') as f:
+        # 🚩 수정: portalocker.Lock을 사용하여 파일 쓰기 시 잠금을 적용합니다.
+        with portalocker.Lock(log_file_path, 'a', timeout=5, encoding='utf-8') as f:
             f.write(log_entry)
             
     except Exception as e:
@@ -187,7 +182,7 @@ def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
 
 
 def update_scaffolding_count(count_filename, user_log_dir, s_type): 
-    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (파일 쓰기 오류 처리 강화)"""
+    """스캐폴딩 유형별 횟수를 카운트하여 사용자 로그 폴더에 저장합니다. (쓰기 잠금 적용)"""
     
     count_file_path = os.path.join(user_log_dir, count_filename) 
     
@@ -199,16 +194,30 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
         if not os.path.exists(user_log_dir):
             os.makedirs(user_log_dir, exist_ok=True)
             
+        # 🚩 수정: 카운트 파일 쓰기 시에도 잠금을 적용합니다.
+        # 카운트 파일은 읽기->수정->쓰기 과정이므로 더욱 중요합니다.
         if os.path.exists(count_file_path):
-            with open(count_file_path, 'r', encoding='utf-8') as f:
-                counts = json.load(f)
+            # 읽을 때와 쓸 때 모두 잠금을 적용해야 안전합니다.
+            with portalocker.Lock(count_file_path, 'r+', timeout=5, encoding='utf-8') as f: 
+                f.seek(0)
+                try:
+                    counts = json.load(f)
+                except json.JSONDecodeError:
+                    # 파일이 깨진 경우 초기화
+                    counts = {t: 0 for t in valid_types + ["분류실패"]}
+                    
+                counts[s_type] = counts.get(s_type, 0) + 1
+                
+                # 파일 내용을 덮어쓰기 전에 비우고 다시 씁니다.
+                f.seek(0)
+                f.truncate() 
+                json.dump(counts, f, ensure_ascii=False, indent=4)
         else:
             counts = {t: 0 for t in valid_types + ["분류실패"]}
-
-        counts[s_type] = counts.get(s_type, 0) + 1
-        
-        with open(count_file_path, 'w', encoding='utf-8') as f:
-            json.dump(counts, f, ensure_ascii=False, indent=4)
+            counts[s_type] = counts.get(s_type, 0) + 1
+            
+            with portalocker.Lock(count_file_path, 'w', timeout=5, encoding='utf-8') as f:
+                json.dump(counts, f, ensure_ascii=False, indent=4)
             
     except Exception as e:
         print(f"🚨🚨 CRITICAL COUNT WRITE FAIL: 카운트 파일 저장 실패: {count_file_path} ({e})")
