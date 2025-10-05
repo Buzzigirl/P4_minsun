@@ -158,22 +158,30 @@ except json.JSONDecodeError as e:
     AUTHORIZED_USERS = {}
 
 
-# --- 로그 및 카운트 관리 함수 (파일 쓰기 오류 처리 강화) ---
-
+# config_utils.py 내 log_conversation_entry 함수 확인
 def log_conversation_entry(speaker, text, log_filename, scaffolding_type=None):
     """대화 항목을 TXT 로그 파일에 추가합니다. (쓰기 잠금 적용)"""
     log_file_path = os.path.join(LOGS_DIR, log_filename)
-    # ... (log_entry 구성 로직 유지) ...
+    now_str = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     
+    if speaker == 'User':
+        log_entry = f"[{now_str}] 사용자: {text}\n\n"
+    else: # AI
+        label = f" ({scaffolding_type})" if scaffolding_type else ""
+        log_entry = f"[{now_str}] AI{label}: {text}\n"
+        log_entry += f"----------------------------------------\n\n"
+        
     log_dir = os.path.dirname(log_file_path)
     
     print(f"DEBUG: Attempting to write log to: {log_file_path}")
     
     try:
+        # 1. 폴더 생성 (폴더가 없으면 lock이 실패할 수 있음)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True) 
             
-        # 🚩 수정: portalocker.Lock을 사용하여 파일 쓰기 시 잠금을 적용합니다.
+        # 🚨 수정: portalocker.Lock을 사용하여 파일 쓰기 시 잠금을 적용합니다.
+        # 'a': append 모드로 열어, 기존 내용을 덮어쓰지 않고 추가만 합니다.
         with portalocker.Lock(log_file_path, 'a', timeout=5, encoding='utf-8') as f:
             f.write(log_entry)
             
@@ -194,21 +202,20 @@ def update_scaffolding_count(count_filename, user_log_dir, s_type):
         if not os.path.exists(user_log_dir):
             os.makedirs(user_log_dir, exist_ok=True)
             
-        # 🚩 수정: 카운트 파일 쓰기 시에도 잠금을 적용합니다.
-        # 카운트 파일은 읽기->수정->쓰기 과정이므로 더욱 중요합니다.
+        # 🚩 수정: 카운트 파일 쓰기 시 잠금 적용 (r+ 모드로 수정 및 덮어쓰기)
         if os.path.exists(count_file_path):
-            # 읽을 때와 쓸 때 모두 잠금을 적용해야 안전합니다.
             with portalocker.Lock(count_file_path, 'r+', timeout=5, encoding='utf-8') as f: 
                 f.seek(0)
                 try:
-                    counts = json.load(f)
+                    # 파일 내용을 읽기 전에 파일이 비어있지 않은지 확인
+                    content = f.read()
+                    f.seek(0)
+                    counts = json.loads(content) if content else {t: 0 for t in valid_types + ["분류실패"]}
                 except json.JSONDecodeError:
-                    # 파일이 깨진 경우 초기화
                     counts = {t: 0 for t in valid_types + ["분류실패"]}
                     
                 counts[s_type] = counts.get(s_type, 0) + 1
                 
-                # 파일 내용을 덮어쓰기 전에 비우고 다시 씁니다.
                 f.seek(0)
                 f.truncate() 
                 json.dump(counts, f, ensure_ascii=False, indent=4)
