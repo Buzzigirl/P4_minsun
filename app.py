@@ -303,11 +303,15 @@ def submit_and_download_log():
     
     # 1. 메인 대화 로그 읽기
     try:
-        from config_utils import format_scaffolding_counts # 함수 임포트
+        from config_utils import format_scaffolding_counts 
         
         if not os.path.exists(main_log_path):
-            print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}")
-            return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 경로를 확인하세요: {main_log_path}", 404
+            print(f"🚨 CRITICAL ERROR: Main log file not found at {main_log_path}. Check server restart.")
+            
+            # 🚨 수정: 파일이 없으면 세션을 클리어하고 로그인 화면으로 돌려보냅니다.
+            # 이 메시지를 통해 사용자는 파일이 저장되지 않았음을 알 수 있습니다.
+            session.clear() 
+            return f"오류: 대화 로그 파일이 서버에 존재하지 않습니다. 서버가 재시작되었거나 대화 기록이 없습니다. 다시 로그인하여 처음부터 시도해 주세요.", 404
         
         with open(main_log_path, 'r', encoding='utf-8') as f:
             conversation_log = f.read()
