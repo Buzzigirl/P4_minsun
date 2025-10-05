@@ -3,21 +3,38 @@
 // 🚩 Flask 변수는 HTML에서 전역 변수로 설정되어야 함
 const AVATAR_URL = window.AVATAR_URL;
 const PLACEHOLDER_AVATAR_URL = window.PLACEHOLDER_AVATAR_URL;
+const USER_ID = window.USER_ID; // 학번
 
 const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 
 // --- 30분 학습 타이머 및 팝업 로직 ---
-// const TOTAL_TIME_SECONDS = 0; 
-const TOTAL_TIME_SECONDS = 30 * 60; // 30분 (테스트 후 원상복구할 값)
+const TOTAL_TIME_SECONDS = 30 * 60; // 30분 제한 복구
 const TIMER_DISPLAY = document.getElementById('timer');
 const MODAL = document.getElementById('end-session-modal');
 const MODAL_MESSAGE = document.getElementById('modal-message');
 const MODAL_BUTTONS = document.getElementById('modal-buttons');
 
-const TIMER_STORAGE_KEY = 'chatStartTime_' + window.USER_ID;
+const TIMER_STORAGE_KEY = 'chatStartTime_' + USER_ID;
 
 let startTime;
+
+// 🚩 버튼 요소 가져오기
+const LOG_DOWNLOAD_BUTTON = document.getElementById('log-download-button');
+const LOG_DOWNLOAD_LINK = document.getElementById('log-download-link');
+const SUBMIT_END_BUTTON = document.getElementById('submit-and-end-button'); // 종료 버튼도 제어
+
+// 🚩 초기 버튼 상태 설정 (비활성화 상태로 시작)
+if (LOG_DOWNLOAD_BUTTON) {
+    LOG_DOWNLOAD_BUTTON.disabled = true;
+    LOG_DOWNLOAD_BUTTON.style.opacity = '0.5';
+    LOG_DOWNLOAD_BUTTON.style.cursor = 'not-allowed';
+    // 30분 미만일 경우 다운로드 링크를 임시로 끊어 실수 방지
+    if (LOG_DOWNLOAD_LINK) {
+        LOG_DOWNLOAD_LINK.href = 'javascript:void(0)';
+    }
+}
+// ------------------------------------
 
 // --- 새로운 기능: 침묵 감지 로직 ---
 const INACTIVITY_TIME = 5 * 60 * 1000; // 5분 (밀리초)
@@ -31,16 +48,14 @@ function resetInactivityTimer() {
 
 // 🚩 5분 경과 시 호출되는 함수 (AI 재촉 메시지 호출)
 function promptInactivity() {
-    // AI 로딩 표시 및 입력 비활성화
     showLoading(); 
     
-    // 서버의 새로운 라우트 호출 (/get_prompt_response는 app.py에 추가되어야 함)
     fetch('/get_prompt_response', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({}) // 빈 요청 본문
+        body: JSON.stringify({})
     })
     .then(response => response.json())
     .then(data => {
@@ -50,13 +65,11 @@ function promptInactivity() {
         } else if (data.error) {
             console.error("Inactivity Prompt Error:", data.error);
         }
-        // 응답을 받은 후, 타이머를 즉시 재설정하여 다음 5분 카운트 시작
         resetInactivityTimer();
     })
     .catch(error => {
         hideLoading();
         console.error('Fetch error:', error);
-        // 오류 발생 시에도 타이머는 재설정
         resetInactivityTimer(); 
     });
 }
@@ -64,7 +77,6 @@ function promptInactivity() {
 
 // 1. 30분 타이머 초기화 및 시작
 function initializeTimer() {
-    // localStorage의 키를 TIMER_STORAGE_KEY로 변경
     if (!localStorage.getItem(TIMER_STORAGE_KEY)) { 
         startTime = Date.now();
         localStorage.setItem(TIMER_STORAGE_KEY, startTime);
@@ -75,19 +87,31 @@ function initializeTimer() {
     setInterval(updateTimer, 1000);
 }
 
-// 2. 30분 타이머 업데이트 로직
+// 2. 30분 타이머 업데이트 로직 (🚩 버튼 활성화 로직 포함)
 function updateTimer() {
     const elapsedTimeMs = Date.now() - startTime;
     const remainingTimeSeconds = TOTAL_TIME_SECONDS - Math.floor(elapsedTimeMs / 1000);
     
-    // 🚩 1. 시간 종료 체크 및 표시
+    // 🚩 1. 시간 종료 체크 및 버튼 활성화
     if (remainingTimeSeconds <= 0) {
         TIMER_DISPLAY.textContent = "남은 시간: 00:00 (종료 권장)";
         TIMER_DISPLAY.style.backgroundColor = '#e74c3c'; // 빨간색
-        return;
+        
+        // 🚨 다운로드 버튼 활성화 로직
+        if (LOG_DOWNLOAD_BUTTON && LOG_DOWNLOAD_BUTTON.disabled) {
+            LOG_DOWNLOAD_BUTTON.disabled = false;
+            LOG_DOWNLOAD_BUTTON.style.opacity = '1.0';
+            LOG_DOWNLOAD_BUTTON.style.cursor = 'pointer';
+            // 링크의 다운로드 속성 복구
+            if (LOG_DOWNLOAD_LINK) {
+                 LOG_DOWNLOAD_LINK.href = "/submit_and_download_log"; 
+            }
+        }
+        // 종료 버튼은 항상 활성화되어 있다고 가정 (팝업에서 시간 체크)
+        return; 
     }
     
-    // 🚩 2. 정상 카운트다운 계산 및 포맷
+    // 2. 정상 카운트다운 계산 및 포맷
     const minutes = Math.floor(remainingTimeSeconds / 60);
     const seconds = remainingTimeSeconds % 60;
     
@@ -95,11 +119,22 @@ function updateTimer() {
     
     TIMER_DISPLAY.textContent = `남은 시간: ${formattedTime}`;
 
-    // 🚩 3. 5분 미만 경고 스타일
+    // 3. 5분 미만 경고 스타일
     if (remainingTimeSeconds < 5 * 60) {
          TIMER_DISPLAY.style.backgroundColor = '#f39c12'; // 노란색
     } else {
          TIMER_DISPLAY.style.backgroundColor = '#4285f4'; // 파란색
+    }
+    
+    // 🚨 30분 미만일 경우 버튼 비활성화 상태 유지
+    if (LOG_DOWNLOAD_BUTTON && !LOG_DOWNLOAD_BUTTON.disabled) {
+        LOG_DOWNLOAD_BUTTON.disabled = true;
+        LOG_DOWNLOAD_BUTTON.style.opacity = '0.5';
+        LOG_DOWNLOAD_BUTTON.style.cursor = 'not-allowed';
+        // 30분 미만일 경우 다운로드 링크를 임시로 끊어 실수 방지
+        if (LOG_DOWNLOAD_LINK) {
+            LOG_DOWNLOAD_LINK.href = 'javascript:void(0)';
+        }
     }
 }
 
@@ -112,12 +147,14 @@ function closeModal() {
     MODAL.style.display = 'none';
 }
 
-// 4. 제출 팝업 로직
+// 4. 제출 팝업 로직 (시간 체크 및 버튼 동작)
 function checkTimeAndShowPopup() {
-    // TOTAL_TIME_SECONDS=0 이므로 항상 제출 가능 로직이 실행됩니다.
     const elapsedTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
     const timePassed30Minutes = elapsedTimeSeconds >= TOTAL_TIME_SECONDS;
     
+    const DRIVE_URL = 'https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link';
+    const DOWNLOAD_URL = '/submit_and_download_log';
+
     MODAL_BUTTONS.innerHTML = '';
     
     if (!timePassed30Minutes) {
@@ -139,9 +176,15 @@ function checkTimeAndShowPopup() {
         yesButton.textContent = '예';
         yesButton.classList.add('btn-yes');
         yesButton.onclick = function() {
-            // 구글 드라이브 링크로 이동 (새 탭)
-            window.open('https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link', '_blank'); 
-            closeModal(); // 모달 닫기
+            // 1. 다운로드 요청 시작 (로그 통합 및 다운로드)
+            window.open(DOWNLOAD_URL, '_blank'); 
+            
+            // 2. 다운로드 시작 후 잠시 지연 후 Google Drive 페이지로 리디렉션
+            setTimeout(() => {
+                window.location.href = DRIVE_URL;
+            }, 1000); 
+
+            closeModal();
         };
         
         const backButton = document.createElement('button');
@@ -156,7 +199,7 @@ function checkTimeAndShowPopup() {
     showModal();
 }
 
-// 5. 메시지 처리 함수들
+// 5. 메시지 처리 함수들 (appendMessage, showLoading, hideLoading 유지)
 function appendMessage(speaker, message) {
     const row = document.createElement('div');
     row.classList.add('message-row', speaker === 'AI' ? 'ai-message-row' : 'user-message-row');
@@ -207,7 +250,10 @@ function hideLoading() {
     if (loadingRow) {
         loadingRow.remove();
     }
+    // 🚩 2초 쿨다운 로직은 sendMessage에 isSending 플래그를 사용하지 않으므로, 
+    //    여기서는 단순 입력 활성화만 유지합니다. (sendMessage 함수에서 처리됨)
     userInput.disabled = false;
+    document.querySelector('.input-form button').disabled = false; 
     userInput.focus(); 
 }
 
@@ -219,6 +265,9 @@ function sendMessage() {
     // 🚩 메시지 보낼 때 침묵 타이머 재설정
     resetInactivityTimer(); 
 
+    // 🚩 2초 쿨다운 로직을 위해 버튼 비활성화 (sendMessage 내부에서 처리)
+    document.querySelector('.input-form button').disabled = true;
+    
     appendMessage('User', message);
     userInput.value = '';
 
@@ -233,6 +282,7 @@ function sendMessage() {
     })
     .then(response => {
         hideLoading();
+        // ... (나머지 then/catch 로직 유지) ...
         if (!response.ok) {
             return response.json().then(data => { 
                 console.error('API Error:', data.error || 'Unknown error during API call.');
@@ -268,5 +318,4 @@ window.onload = function() {
 // 8. 🚩 사용자 활동 감지 이벤트 리스너 추가 (침묵 감지 초기화)
 document.addEventListener('mousemove', resetInactivityTimer);
 document.addEventListener('keypress', resetInactivityTimer);
-// 입력 필드에 포커스가 있을 때만 키 입력 감지 (효율성)
 userInput.addEventListener('focus', resetInactivityTimer);
