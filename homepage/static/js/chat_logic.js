@@ -170,7 +170,7 @@ function checkTimeAndShowPopup() {
         
     } else {
         // 2) 30분 지났을 경우 (제출 가능)
-        MODAL_MESSAGE.innerHTML = '결과물 제출양식을 다운로드 하신 후 구글 드라이브에 업로드 해 주시면 됩니다.';
+        MODAL_MESSAGE.innerHTML = '구글 드라이브 링크에 들어가서 본인 이름의 파일에 있는 최종 결과물 양식을 작성해주시기 바랍니다.';
         
         const yesButton = document.createElement('button');
         yesButton.textContent = '예';
