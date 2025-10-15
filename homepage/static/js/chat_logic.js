@@ -2,7 +2,7 @@
 
 // 🚩 Flask 변수는 HTML에서 전역 변수로 설정되어야 함
 const AVATAR_URL = window.AVATAR_URL;
-const PLACEHOLDER_AVATAR_URL = window.PLACEHOLDER_AVATAR_URL;
+const PLACEHOLDER_AVATAR_URL = window.PLACEHELDER_AVATAR_URL;
 const USER_ID = window.USER_ID; // 학번
 
 const chatBox = document.getElementById('chat-box');
@@ -18,15 +18,17 @@ const MODAL_BUTTONS = document.getElementById('modal-buttons');
 const TIMER_STORAGE_KEY = 'chatStartTime_' + USER_ID;
 
 let startTime;
+let isSending = false; // 🚩 핵심: 메시지 전송 중복 방지 플래그 추가
+let cooldownTimeout = null; // 🚩 쿨다운 타이머 변수
 
-// 🚩 수정: DRIVE_URL과 DOWNLOAD_URL을 전역 상수로 명확히 정의
+// 🚩 전역 상수 정의 (URL 오류 해결)
 const DRIVE_URL = 'https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link';
 const DOWNLOAD_URL = '/submit_and_download_log';
 
 // 🚩 버튼 요소 가져오기
 const LOG_DOWNLOAD_BUTTON = document.getElementById('log-download-button');
 const LOG_DOWNLOAD_LINK = document.getElementById('log-download-link');
-const SUBMIT_END_BUTTON = document.getElementById('submit-and-end-button'); // 종료 버튼도 제어
+// ------------------------------------
 
 // 🚩 초기 버튼 상태 설정 (비활성화 상태로 시작)
 if (LOG_DOWNLOAD_BUTTON) {
@@ -105,7 +107,6 @@ function updateTimer() {
             LOG_DOWNLOAD_BUTTON.disabled = false;
             LOG_DOWNLOAD_BUTTON.style.opacity = '1.0';
             LOG_DOWNLOAD_BUTTON.style.cursor = 'pointer';
-            // 링크의 다운로드 속성 복구
             if (LOG_DOWNLOAD_LINK) {
                  LOG_DOWNLOAD_LINK.href = DOWNLOAD_URL; 
             }
@@ -128,12 +129,11 @@ function updateTimer() {
          TIMER_DISPLAY.style.backgroundColor = '#4285f4'; // 파란색
     }
     
-    // 🚨 30분 미만일 경우 버튼 비활성화 상태 유지
+    // 🚨 30분 미만일 경우 다운로드 버튼 비활성화 상태 유지
     if (LOG_DOWNLOAD_BUTTON && !LOG_DOWNLOAD_BUTTON.disabled) {
         LOG_DOWNLOAD_BUTTON.disabled = true;
         LOG_DOWNLOAD_BUTTON.style.opacity = '0.5';
         LOG_DOWNLOAD_BUTTON.style.cursor = 'not-allowed';
-        // 30분 미만일 경우 다운로드 링크를 임시로 끊어 실수 방지
         if (LOG_DOWNLOAD_LINK) {
             LOG_DOWNLOAD_LINK.href = 'javascript:void(0)';
         }
@@ -249,22 +249,35 @@ function hideLoading() {
     if (loadingRow) {
         loadingRow.remove();
     }
-    // 2초 쿨다운 로직을 위해 버튼 비활성화 (sendMessage 내부에서 처리)
-    userInput.disabled = false;
-    document.querySelector('.input-form button').disabled = false; 
-    userInput.focus(); 
+    // 🚩 2초 쿨다운 로직을 위해 버튼 비활성화 해제
+    // hideLoading은 로딩 메시지를 숨기는 역할만 하고, 쿨다운은 setTimeout으로 제어합니다.
+    
+    // 🚨 수정: 쿨다운 타이머가 설정된 경우에만 입력 필드를 비활성화 상태로 유지해야 합니다.
+    if (cooldownTimeout === null) { 
+        userInput.disabled = false;
+        document.querySelector('.input-form button').disabled = false;
+        userInput.focus(); 
+    }
 }
 
-// 6. 메시지 전송 로직 (🚩 침묵 감지 타이머 재설정 추가)
+// 6. 메시지 전송 로직 (🚩 침묵 감지 타이머 재설정 및 쿨다운 적용)
 function sendMessage() {
     const message = userInput.value.trim();
-    if (message === '') return;
+    if (message === '' || cooldownTimeout !== null) return; // 쿨다운 중이거나 메시지가 없으면 중단
+
+    // 🚩 1. 쿨다운 시작: 플래그를 설정하고 버튼 비활성화
+    const button = document.querySelector('.input-form button');
+    button.disabled = true;
+    
+    cooldownTimeout = setTimeout(() => {
+        cooldownTimeout = null; // 쿨다운 해제
+        if (!userInput.disabled) { // 로딩 중이 아니라면 활성화
+            button.disabled = false;
+        }
+    }, 2000); // 2초 쿨다운
 
     // 🚩 메시지 보낼 때 침묵 타이머 재설정
     resetInactivityTimer(); 
-
-    // 🚩 2초 쿨다운 로직을 위해 버튼 비활성화 (sendMessage 내부에서 처리)
-    document.querySelector('.input-form button').disabled = true;
     
     appendMessage('User', message);
     userInput.value = '';
@@ -279,8 +292,8 @@ function sendMessage() {
         body: JSON.stringify({ message: message })
     })
     .then(response => {
-        hideLoading();
-        // ... (나머지 then/catch 로직 유지) ...
+        // hideLoading 내부에서 쿨다운 해제 및 입력 활성화
+        hideLoading(); 
         if (!response.ok) {
             return response.json().then(data => { 
                 console.error('API Error:', data.error || 'Unknown error during API call.');
