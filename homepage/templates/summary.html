@@ -1,124 +1,129 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    {% include '_head_styles.html' %} 
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>연구 개요 및 학습 활동 안내</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* summary 페이지를 위한 스타일 오버라이드 및 레이아웃 조정 */
-        
-        /* 1. 전체 컨테이너 및 중앙 정렬 */
-        body {
-            height: auto; 
-            min-height: 100vh;
-            padding: 40px 0; 
-            display: flex; 
-            align-items: flex-start; 
-            overflow-y: auto !important; /* 스크롤 강제 허용 */
-        }
-        .summary-wrapper {
-            max-width: 1000px;
-            width: 90%;
-            padding: 40px 60px; 
-            margin: 0 auto; 
+        /* [summary.html 전용 디자인 추가] */
+        .main-content-area {
+            max-width: 700px;
+            margin: 50px auto;
+            padding: 40px;
             background-color: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         }
-        
-        /* 2. 제목 스타일 */
-        .summary-wrapper h1 {
-            color: #1a73e8;
-            border-bottom: 3px solid #1a73e8;
-            padding-bottom: 15px;
-            margin-bottom: 30px;
-            font-weight: 800;
+
+        /* 전체 타이틀 및 인사말 */
+        .summary-title {
             font-size: 1.8em;
+            color: #1a4d8c; /* 진한 파란색 계열 */
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+
+        .teacher-greeting {
+            font-size: 1.5em;
+            color: #4CAF50; /* 포인트 색상 (녹색 계열) */
+            text-align: center;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        .section-divider {
+            border: 0;
+            height: 1px;
+            background: #ccc;
+            margin: 20px 0 30px 0;
+        }
+
+        /* 정보 박스 스타일 (문제상황/수행과업) */
+        .info-box {
+            padding: 25px;
+            margin-bottom: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            line-height: 1.6; /* 텍스트 가독성 향상 */
+        }
+
+        .box-title {
+            font-size: 1.3em;
+            font-weight: 700;
+            margin-top: 0;
+            padding-bottom: 10px;
+            border-bottom: 2px solid;
+            margin-bottom: 15px;
+        }
+
+        /* 문제상황 섹션 디자인 */
+        .problem-section {
+            background-color: #f0f7ff; /* 연한 파란색 배경 */
+        }
+        .problem-section .box-title {
+            color: #007bff;
+            border-color: #007bff;
+        }
+
+        /* 수행과업 섹션 디자인 */
+        .task-section {
+            background-color: #f7fff0; /* 연한 녹색 배경 */
+        }
+        .task-section .box-title {
+            color: #4CAF50;
+            border-color: #4CAF50;
         }
         
-        /* 3. 섹션 간격 및 제목 간격 조정 */
-        .summary-section {
-            margin-bottom: 30px; /* 섹션 간격 유지 */
-            padding-left: 15px;
-            border-left: 4px solid #f0f4f9;
-        }
-        .summary-section h3 {
-            color: #3c4043;
-            margin-top: 0;
-            margin-bottom: 5px; 
-            font-weight: 700;
-            font-size: 1.2em;
-        }
-        .summary-wrapper p {
-            line-height: 1.6; 
-            color: #5f6368;
-            font-size: 0.95em; 
-            margin-top: 5px; 
-            white-space: pre-wrap;
-        }
-
-        /* 학습 모델 강조 박스 스타일 */
-        .learner-model-box {
-            background-color: #e8f0fe; /* Google Blue Light */
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 25px;
-            border-left: 5px solid #1a73e8;
-        }
-        .learner-model-box h3 {
-            color: #1a73e8 !important; 
-            margin-bottom: 10px;
-        }
-        .learner-model-box p {
-            font-weight: 500;
-            color: #1a73e8;
-            font-size: 1em;
-            margin-top: 0;
-        }
-
-        /* 시작하기 버튼 스타일 */
-        .start-button {
+        /* 시작 버튼 스타일 */
+        .start-chat-button {
             width: 100%;
             padding: 15px;
-            background-color: #34a853; 
+            background-color: #ff5722; /* 눈에 띄는 주황색 */
             color: white;
             border: none;
             border-radius: 8px;
-            font-size: 1.1em;
+            font-size: 1.2em;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.3s ease;
+            transition: background-color 0.3s;
             margin-top: 30px;
         }
-        .start-button:hover {
-            background-color: #278f48;
+
+        .start-chat-button:hover {
+            background-color: #e64a19;
         }
     </style>
 </head>
 <body>
-    <div class="summary-wrapper">
-        <h1>연구 개요 및 학습 활동 안내</h1>
-        
-        <div class="summary-section">
-            <h3>🤝 동료 학습자님 환영합니다! ({{ user_name }}님)</h3>
-            <p>우리는 지금부터 교내 음식물 쓰레기 문제를 해결할 AI 기반 학습 활동을 함께 설계할 것입니다. AI 동료와 협력하여 과제 목표를 달성해 주세요.</p>
+    <div class="main-content-area">
+        <h1 class="summary-title">연구 개요 및 학습 활동 안내</h1>
+        <h2 class="teacher-greeting">고민선 선생님, 안녕하세요!</h2>
+        <hr class="section-divider">
+
+        <div class="info-box problem-section">
+            <h3 class="box-title">문제상황</h3>
+            <p>
+                고민선 선생님, 안녕하세요. 저번에 연세중학교 3학년 동학년 회의에서 3학년 담임 선생님들께서 학생지도 관련해서 제기해주신 안건입니다. 학생들이 최근에 쓰레기 분리수거를 제대로 하고 있지 않거나 교내에 자꾸 외부 음식을 반입하고 제대로 처리를 하지 않아서 쓰레기 처리를 해주시는 여사님들이 어려움을 겪고 있다고 합니다.
+            </p>
+            <p>
+                학생들에게 환경오염의 경각심을 높이는 방향으로 쓰레기 분리수거 규칙준수를 할 수 있도록 **교육활동을 설계**하려고 합니다.
+            </p>
         </div>
 
-        <div class="summary-section">
-            <h3>💡 문제 상황</h3>
-            <p>교육과학관 내에는 공식 입점한 교내 식당 및 카페를 제외한 배달음식 반입이 금지되어 있습니다. 하지만 교육과학관을 이용하는 대학생들과 대학원생들이 계속 외부 음식 및 음료를 반입하여 건물 환경 오염 및 음식물 분리수거 문제가 발생하고 있습니다.</p>
-        </div>
-        
-        <div class="learner-model-box">
-            <h3>📝 학습 과업</h3>
-            <p>우리는 위의 문제상황을 개선하기 위해 연세대학교 교육과학관 음식물 쓰레기 처리관련 문제의 경각심을 인지시키고 외부 음식물 쓰레기 반입을 하지 않도록 설득할 수 있는 효과적인 수업활동을 설계해보려고 합니다. <br><br>동료 AI와 대화하면서 사전에 나누어 드린 수업활동지를 작성해봅시다.</p>
+        <div class="info-box task-section">
+            <h3 class="box-title">수행과업</h3>
+            <p>
+                "환경" 과목와 연계하여 **문제상황, 성취기준, 학급특성**을 고려하여 적합한 인공지능 도구와 교수학습방안을 활용한 수업을 설계해주시기 바랍니다.
+            </p>
         </div>
 
-        <div class="summary-section">
-            <h3>⏰ 과업 수행 시간</h3>
-            <p>최소 30분 동안 문제해결과정에 참여해주셔야 하며, 시간이 더 필요 시에는 실험 관리자에게 문의하고 진행하셔도 됩니다.</p>
-        </div>
-        
-        <button class="start-button" onclick="window.location.href='{{ url_for('chat') }}'">
-            AI 동료와 대화 시작하기
-        </button>
+        <form action="{{ url_for('chat') }}" method="GET">
+            <button type="submit" class="start-chat-button">
+                AI 동료와 대화 시작하기
+            </button>
+        </form>
     </div>
-</body>
+    </body>
 </html>

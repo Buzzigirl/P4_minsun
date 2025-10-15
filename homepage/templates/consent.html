@@ -3,137 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>연구 참여 동의서</title>
+    <title>연구 참여 안내</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f4f7f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            line-height: 1.6;
-        }
-        .consent-container {
-            background: white;
-            padding: 50px;
-            border-radius: 15px;
-            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
-            width: 100%;
-            max-width: 700px;
-            text-align: left;
-            border-top: 5px solid #3498db;
-        }
-        .consent-container h2 {
-            color: #2c3e50;
-            text-align: center;
-            margin-bottom: 25px;
-            font-weight: 800;
-        }
-        .content {
-            border: 1px solid #ecf0f1;
+        /* 새로운 화면에 맞게 디자인 일부 조정 */
+        .main-content-area {
+            max-width: 600px;
+            margin: 50px auto;
             padding: 30px;
-            border-radius: 8px;
-            background-color: #fafbfb;
-            margin-bottom: 30px;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
         }
-        .content p {
-            margin-bottom: 15px;
-            color: #34495e;
-            font-size: 15px;
-        }
-        .content strong {
-            color: #e74c3c;
+        .main-content-area h1 {
+            font-size: 1.8em;
+            color: #1a4d8c;
+            margin-bottom: 20px;
             font-weight: 700;
         }
-        .agreement-box {
+        .message-box {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 8px;
+            text-align: left;
+            line-height: 1.7;
+        }
+        .message-box p {
+            margin-bottom: 15px;
+            font-size: 1.0em;
+            color: #333;
+        }
+        .message-box strong {
+            display: block;
+            font-size: 1.2em;
+            color: #ff5722;
+            margin-bottom: 15px;
             text-align: center;
-            padding-top: 20px;
-            border-top: 1px dashed #bdc3c7;
         }
-        .radio-group {
-            margin-top: 15px;
-            display: flex;
-            justify-content: center;
-            gap: 40px;
-        }
-        .radio-group label {
-            font-size: 18px;
-            font-weight: 600;
-            color: #2c3e50;
-            cursor: pointer;
-        }
-        .radio-group input[type="radio"] {
-            margin-right: 8px;
-            transform: scale(1.3);
-        }
-        button {
+        .start-button {
             width: 100%;
-            padding: 14px;
-            background-color: #2ecc71;
+            padding: 15px;
+            background-color: #4CAF50; /* 녹색 계열 */
             color: white;
             border: none;
-            border-radius: 6px;
-            font-size: 18px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: 700;
             cursor: pointer;
-            transition: background-color 0.3s ease;
-            margin-top: 25px;
-            font-weight: 600;
+            transition: background-color 0.3s;
+            margin-top: 20px;
         }
-        button:hover {
-            background-color: #27ae60;
-        }
-        .contact-info {
-            text-align: center;
-            margin-top: 30px;
-            font-size: 14px;
-            color: #95a5a6;
-        }
-        .error {
-            color: #e74c3c;
-            text-align: center;
-            margin-top: 15px;
-            font-weight: 500;
+        .start-button:hover {
+            background-color: #45a049;
         }
     </style>
 </head>
 <body>
-    <div class="consent-container">
-        <h2>&lt;동료학습자 역할 수행 생성형 AI의 스캐폴딩 효과 분석&gt;</h2>
-        <p style="text-align: center; font-size: 1.1em; color: #3498db;">**안녕하세요. 귀한 시간을 내어 연구에 참여해 주셔서 감사합니다.**</p>
+    <div class="main-content-area">
+        <h1>&lt; 생성형 AI 기반 동료적 스캐폴딩의 교육적 효과 분석 &gt;</h1>
         
-        <div class="content">
-            <p>본 연구는 문제기반학습(PBL)에서 동료학습자 역할을 수행하는 생성형 AI의 스캐폴딩을 활용하였을 때 교육적 효과를 연구하기 위한 것에 목적이 있습니다. 이 연구는 생성형 AI가 제공하는 동료학습자 스캐폴딩의 다양한 교육적 효과를 탐색하고 AI 스캐폴딩의 다양한 교육적 활용을 연구하는데 목적이 있습니다.</p>
-            <p>생성형 AI와 대화내용은 익명으로 처리되며, 연구 목적으로만 사용됩니다. 본 연구에 성실하고 적극적인 참여 부탁드립니다.</p>
-            <p><strong>*본 실험에 참여하는 것은 연구를 위한 개인 정보활용 및 실험결과 활용에 동의하는 것으로 간주됩니다.</strong></p>
-            <p><strong>*본 실험에서 동료 AI와의 대화내용은 추후 연구결과 분석에 활용될 예정입니다.</strong></p>
+        <div class="message-box">
+            <p>
+                <strong>"안녕하세요! 저는 여러분과 함께 문제를 해결하는데 도움을 줄 동료 AI입니다"</strong>
+            </p>
+            <p>
+                생성형 AI는 학교, 가정, 사회에서 없어서는 안되는 동반자가 되었습니다. 내가 모르는 것을 알려주고, 문제해결에 필요한 정보를 알려주면서 우리 삶을 더욱 편리하게 해주게 되었습니다.
+            </p>
+            <p>
+                본 수업에서는 기존의 생성형 AI를 정답을 직접적으로 알려주는 역할이 아닌 스캐폴딩을 제공하는 동료학습자라고 생각하고 함께 문제를 해결해보도록 합니다.
+            </p>
+            <p style="font-weight: bold; color: #1a4d8c;">
+                그러면 아래 오늘의 문제해결을 시작해 볼까요. 아래의 버튼을 눌러 오늘 동료 AI와 해결할 문제를 탐색해봅시다.
+            </p>
         </div>
 
-        <form method="POST">
-            <div class="agreement-box">
-                <p>위의 주의사항을 참고하여 본 실험 참여에 동의하시는 분은 아래의 버튼에 체크 바랍니다.</p>
-                <div class="radio-group">
-                    <label>
-                        <input type="radio" name="consent_check" value="agree" required> 동의
-                    </label>
-                    <label>
-                        <input type="radio" name="consent_check" value="disagree"> 비동의
-                    </label>
-                </div>
-            </div>
-            
-            <button type="submit">제출하고 채팅 시작</button>
+        <form action="{{ url_for('summary') }}" method="GET">
+            <button type="submit" class="start-button">
+                문제 탐색하기
+            </button>
         </form>
-        
-        {% if error %}
-        <p class="error">{{ error }}</p>
-        {% endif %}
-
-        <div class="contact-info">
-            연구 책임자: 연세대학교 일반대학원 교육학과 고민선<br>
-            문의: 고민선 (kms0812@yonsei.ac.kr)
-        </div>
     </div>
 </body>
 </html>
