@@ -22,7 +22,7 @@ let isSending = false; // 🚩 핵심: 메시지 전송 중복 방지 플래그 
 let cooldownTimeout = null; // 🚩 쿨다운 타이머 변수
 
 // 🚩 전역 상수 정의 (URL 오류 해결)
-const DRIVE_URL = 'https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link';
+const DRIVE_URL = 'https://drive.google.com/drive.google.com/drive/folders/1S9kVIZ2Ij_r8XJ6qm7Ck5bc10Ms91fnW?usp=drive_link';
 const DOWNLOAD_URL = '/submit_and_download_log';
 
 // 🚩 버튼 요소 가져오기
