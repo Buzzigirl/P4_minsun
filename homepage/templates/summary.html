@@ -6,31 +6,31 @@
     <title>연구 개요 및 학습 활동 안내</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
-        /* [summary.html 전용 디자인 추가] */
+        /* [summary.html 전용 디자인 추가 및 수정] */
         .main-content-area {
-            max-width: 700px;
+            max-width: 750px; /* 폭 확장 */
             margin: 50px auto;
             padding: 40px;
             background-color: #ffffff;
             border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15); /* 그림자 강화 */
         }
 
         /* 전체 타이틀 및 인사말 */
         .summary-title {
-            font-size: 1.8em;
-            color: #1a4d8c; /* 진한 파란색 계열 */
+            font-size: 2.0em; /* 폰트 크기 증가 */
+            color: #1a4d8c;
             text-align: center;
             margin-bottom: 20px;
-            font-weight: 700;
+            font-weight: 800;
         }
 
         .teacher-greeting {
-            font-size: 1.5em;
-            color: #4CAF50; /* 포인트 색상 (녹색 계열) */
+            font-size: 1.6em; /* 폰트 크기 증가 */
+            color: #4CAF50;
             text-align: center;
             margin-bottom: 30px;
-            font-weight: 600;
+            font-weight: 700;
         }
 
         .section-divider {
@@ -46,11 +46,21 @@
             margin-bottom: 25px;
             border-radius: 10px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            line-height: 1.6; /* 텍스트 가독성 향상 */
+        }
+
+        .info-box p {
+            font-size: 1.15em; /* 가독성 향상을 위해 폰트 크기 증가 */
+            line-height: 1.8; /* 줄 간격 넓힘 */
+            text-align: justify;
+        }
+
+        .info-box strong {
+            color: #ff5722; /* 강조색 (주황색) */
+            font-weight: 800;
         }
 
         .box-title {
-            font-size: 1.3em;
+            font-size: 1.4em; /* 폰트 크기 증가 */
             font-weight: 700;
             margin-top: 0;
             padding-bottom: 10px;
@@ -60,7 +70,7 @@
 
         /* 문제상황 섹션 디자인 */
         .problem-section {
-            background-color: #f0f7ff; /* 연한 파란색 배경 */
+            background-color: #f0f7ff;
         }
         .problem-section .box-title {
             color: #007bff;
@@ -69,26 +79,26 @@
 
         /* 수행과업 섹션 디자인 */
         .task-section {
-            background-color: #f7fff0; /* 연한 녹색 배경 */
+            background-color: #f7fff0;
         }
         .task-section .box-title {
             color: #4CAF50;
             border-color: #4CAF50;
         }
-        
+
         /* 시작 버튼 스타일 */
         .start-chat-button {
             width: 100%;
-            padding: 15px;
-            background-color: #ff5722; /* 눈에 띄는 주황색 */
+            padding: 18px; /* 버튼 크기 키움 */
+            background-color: #ff5722;
             color: white;
             border: none;
-            border-radius: 8px;
-            font-size: 1.2em;
+            border-radius: 10px;
+            font-size: 1.3em; /* 폰트 크기 키움 */
             font-weight: 700;
             cursor: pointer;
             transition: background-color 0.3s;
-            margin-top: 30px;
+            margin-top: 40px;
         }
 
         .start-chat-button:hover {
@@ -99,23 +109,23 @@
 <body>
     <div class="main-content-area">
         <h1 class="summary-title">연구 개요 및 학습 활동 안내</h1>
-        <h2 class="teacher-greeting">고민선 선생님, 안녕하세요!</h2>
+        <h2 class="teacher-greeting">{{ session['user']['name'] }} 선생님, 안녕하세요!</h2>
         <hr class="section-divider">
 
         <div class="info-box problem-section">
             <h3 class="box-title">문제상황</h3>
             <p>
-                고민선 선생님, 안녕하세요. 저번에 연세중학교 3학년 동학년 회의에서 3학년 담임 선생님들께서 학생지도 관련해서 제기해주신 안건입니다. 학생들이 최근에 쓰레기 분리수거를 제대로 하고 있지 않거나 교내에 자꾸 외부 음식을 반입하고 제대로 처리를 하지 않아서 쓰레기 처리를 해주시는 여사님들이 어려움을 겪고 있다고 합니다.
-            </p>
-            <p>
-                학생들에게 환경오염의 경각심을 높이는 방향으로 쓰레기 분리수거 규칙준수를 할 수 있도록 **교육활동을 설계**하려고 합니다.
+                {{ session['user']['name'] }} 선생님, 안녕하세요.<br><br>
+                저번에 연세중학교 3학년 동학년 회의에서 3학년 담임 선생님들께서 학생지도 관련해서 제기해주신 안건입니다.<br><br>
+                학생들이 최근에 **쓰레기 분리수거**를 제대로 하고 있지 않거나 교내에 자꾸 **외부 음식을 반입**하고 제대로 처리를 하지 않아서 쓰레기 처리를 해주시는 여사님들이 어려움을 겪고 있다고 합니다.<br><br>
+                학생들에게 **환경오염의 경각심**을 높이는 방향으로 **쓰레기 분리수거 규칙준수**를 할 수 있도록 **교육활동을 설계**하려고 합니다.
             </p>
         </div>
 
         <div class="info-box task-section">
             <h3 class="box-title">수행과업</h3>
             <p>
-                "환경" 과목와 연계하여 **문제상황, 성취기준, 학급특성**을 고려하여 적합한 인공지능 도구와 교수학습방안을 활용한 수업을 설계해주시기 바랍니다.
+                **환경** 과목와 연계하여 **문제상황**, **성취기준**, **학급특성**을 고려하여 적합한 **인공지능 도구**와 **교수학습방안**을 활용한 수업을 설계해주시기 바랍니다.
             </p>
         </div>
 
