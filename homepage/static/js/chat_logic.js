@@ -19,6 +19,10 @@ const TIMER_STORAGE_KEY = 'chatStartTime_' + USER_ID;
 
 let startTime;
 
+// 🚩 수정: DRIVE_URL과 DOWNLOAD_URL을 전역 상수로 명확히 정의
+const DRIVE_URL = 'https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link';
+const DOWNLOAD_URL = '/submit_and_download_log';
+
 // 🚩 버튼 요소 가져오기
 const LOG_DOWNLOAD_BUTTON = document.getElementById('log-download-button');
 const LOG_DOWNLOAD_LINK = document.getElementById('log-download-link');
@@ -29,7 +33,6 @@ if (LOG_DOWNLOAD_BUTTON) {
     LOG_DOWNLOAD_BUTTON.disabled = true;
     LOG_DOWNLOAD_BUTTON.style.opacity = '0.5';
     LOG_DOWNLOAD_BUTTON.style.cursor = 'not-allowed';
-    // 30분 미만일 경우 다운로드 링크를 임시로 끊어 실수 방지
     if (LOG_DOWNLOAD_LINK) {
         LOG_DOWNLOAD_LINK.href = 'javascript:void(0)';
     }
@@ -104,10 +107,9 @@ function updateTimer() {
             LOG_DOWNLOAD_BUTTON.style.cursor = 'pointer';
             // 링크의 다운로드 속성 복구
             if (LOG_DOWNLOAD_LINK) {
-                 LOG_DOWNLOAD_LINK.href = "/submit_and_download_log"; 
+                 LOG_DOWNLOAD_LINK.href = DOWNLOAD_URL; 
             }
         }
-        // 종료 버튼은 항상 활성화되어 있다고 가정 (팝업에서 시간 체크)
         return; 
     }
     
@@ -152,9 +154,6 @@ function checkTimeAndShowPopup() {
     const elapsedTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
     const timePassed30Minutes = elapsedTimeSeconds >= TOTAL_TIME_SECONDS;
     
-    const DRIVE_URL = 'https://drive.google.com/drive/folders/1S9kVIZ2Ij_r8XJ6qm7Ck5bc10Ms91fnW?usp=drive_link;
-    const DOWNLOAD_URL = '/submit_and_download_log';
-
     MODAL_BUTTONS.innerHTML = '';
     
     if (!timePassed30Minutes) {
@@ -250,8 +249,7 @@ function hideLoading() {
     if (loadingRow) {
         loadingRow.remove();
     }
-    // 🚩 2초 쿨다운 로직은 sendMessage에 isSending 플래그를 사용하지 않으므로, 
-    //    여기서는 단순 입력 활성화만 유지합니다. (sendMessage 함수에서 처리됨)
+    // 2초 쿨다운 로직을 위해 버튼 비활성화 (sendMessage 내부에서 처리)
     userInput.disabled = false;
     document.querySelector('.input-form button').disabled = false; 
     userInput.focus(); 
