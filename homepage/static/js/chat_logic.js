@@ -152,7 +152,7 @@ function checkTimeAndShowPopup() {
     const elapsedTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
     const timePassed30Minutes = elapsedTimeSeconds >= TOTAL_TIME_SECONDS;
     
-    const DRIVE_URL = 'https://drive.google.com/drive/folders/1dWldlJJg4gMgS8KwmLYd0ShcihWeB5fO?usp=drive_link';
+    const DRIVE_URL = 'https://drive.google.com/drive/folders/1S9kVIZ2Ij_r8XJ6qm7Ck5bc10Ms91fnW?usp=drive_link;
     const DOWNLOAD_URL = '/submit_and_download_log';
 
     MODAL_BUTTONS.innerHTML = '';
